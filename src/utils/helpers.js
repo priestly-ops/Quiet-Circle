@@ -41,11 +41,26 @@ function pick(options) {
   return options[Math.floor(Math.random() * options.length)];
 }
 
+function isGreeting(text) {
+  const clean = text.toLowerCase().trim().replace(/[!?.\s]+$/g, '');
+  return ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo', 'sup', 'good morning', 'good afternoon', 'good evening'].includes(clean);
+}
+
 export function humanReply(text, room = {}) {
   if (isCrisisText(text)) return safetyReply();
 
   const lower = text.toLowerCase();
   const roomId = room.id || '';
+  const roomName = room.name || 'this circle';
+
+  if (isGreeting(text)) {
+    return pick([
+      `Hey, welcome to ${roomName}. I’m glad you came in. How are you feeling right now?`,
+      `Hi, I’m here with you. No pressure to explain everything — what brought you into ${roomName} today?`,
+      `Hey hey. You’re safe to start small here. What’s been on your mind?`,
+      `Hi friend. I’m listening. Do you want to talk, vent, or just sit for a minute?`
+    ]);
+  }
 
   if (roomId === 'family' || lower.includes('family') || lower.includes('parents') || lower.includes('mom') || lower.includes('dad')) {
     return pick([
