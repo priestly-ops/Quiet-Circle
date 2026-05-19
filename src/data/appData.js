@@ -24,21 +24,19 @@ export const journalPrompts = [
   'What is one small thing that can make the next hour gentler?'
 ];
 
-export const starterMessages = [
-  { from: 'Quiet Circle', text: "hey! hi there, how’s it going?" }
-];
+export const starterMessages = [];
 
 export const defaultRoomMessages = {
-  '2am': [{ user: 'Karan', text: 'hey, late night room is open. kya chal raha hai?' }],
-  family: [{ user: 'Karan', text: 'hey, family pressure can get heavy yaar. what happened?' }],
-  breakup: [{ user: 'Karan', text: 'hey, I’m here. moving on is not easy na — what’s going on?' }],
-  career: [{ user: 'Karan', text: 'hey, career stress can mess with your head. what’s happening?' }],
-  exam: [{ user: 'Karan', text: 'hey, study pressure? tell me what’s stressing you most.' }],
-  work: [{ user: 'Karan', text: 'hey, work draining you today?' }],
-  faith: [{ user: 'Karan', text: 'hey, you can be honest here. what’s on your heart?' }],
-  anxiety: [{ user: 'Karan', text: 'hey, breathe for a sec. what thought keeps looping?' }],
-  friendship: [{ user: 'Karan', text: 'hey, friendship stuff hurts different. what happened?' }],
-  healing: [{ user: 'Karan', text: 'hey, healing takes time yaar. what are you carrying today?' }]
+  '2am': [],
+  family: [],
+  breakup: [],
+  career: [],
+  exam: [],
+  work: [],
+  faith: [],
+  anxiety: [],
+  friendship: [],
+  healing: []
 };
 
 export const DEMO_PROFILE_ID = '00000000-0000-0000-0000-000000000001';
