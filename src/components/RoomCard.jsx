@@ -8,11 +8,11 @@ export default function RoomCard({ room, selected, onSelect }) {
 
       <div className="roomTop">
         <h3>{room.name}</h3>
-        <span>{room.members}/8</span>
+        <span>{room.theme}</span>
       </div>
 
       <p>{room.desc}</p>
-      <small>{room.theme}</small>
+      <small>{room.aiName} · AI guide available</small>
     </button>
   );
 }
