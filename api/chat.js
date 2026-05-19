@@ -24,19 +24,50 @@ function isGreeting(text = '') {
   return ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo', 'sup', 'good morning', 'good afternoon', 'good evening'].includes(clean);
 }
 
-function greetingReply(roomName) {
+function isSmallTalk(text = '') {
+  const clean = text.toLowerCase().trim();
+  return [
+    'nothing',
+    'nothing much',
+    'nothing much bro',
+    'nothing much yaar',
+    'nm',
+    'bored',
+    'im bored',
+    "i'm bored",
+    'just chilling',
+    'chilling',
+    'fine',
+    'good',
+    'ok',
+    'okay'
+  ].includes(clean);
+}
+
+function greetingReply() {
   const replies = [
-    `Hey, welcome to ${roomName || 'this circle'}. I’m glad you came in. How are you feeling right now?`,
-    `Hi, I’m here with you. No pressure to explain everything — what brought you in today?`,
-    `Hey hey. You can start small here. What’s on your mind?`,
-    `Hi friend. I’m listening. Do you want to talk, vent, or just sit for a minute?`
+    'hey! hi there, how’s it going?',
+    'heyy, kya chal raha hai?',
+    'hey bro, how are you doing?',
+    'hi yaar, what’s up?'
+  ];
+  return replies[Math.floor(Math.random() * replies.length)];
+}
+
+function smallTalkReply() {
+  const replies = [
+    'kya chal raha hai yaar? bored ho?',
+    'haha same vibes sometimes. anything on your mind?',
+    'achha, chill scene. wanna talk about anything or just timepass?',
+    'okay okay. how’s your mood today though?'
   ];
   return replies[Math.floor(Math.random() * replies.length)];
 }
 
 function fallbackReply(roomName, message) {
-  if (isGreeting(message)) return greetingReply(roomName);
-  return `I’m here with you in ${roomName || 'this circle'}. Tell me the part that feels the heaviest right now — no need to make it sound perfect.`;
+  if (isGreeting(message)) return greetingReply();
+  if (isSmallTalk(message)) return smallTalkReply();
+  return `oof yaar, that sounds tough. I’m here with you — kya hua jo aise feel ho raha hai?`;
 }
 
 function buildPrompt({ message, roomName, roomTheme, recentMessages }) {
@@ -44,23 +75,31 @@ function buildPrompt({ message, roomName, roomTheme, recentMessages }) {
     ? recentMessages.slice(-8).map((item) => `${item.user || item.from || 'Someone'}: ${item.text}`).join('\n')
     : '';
 
-  return `You are a warm Quiet Circle buddy inside an anonymous emotional support room.
+  return `You are Karan, a warm anonymous buddy inside a Quiet Circle emotional support chat.
 Room: ${roomName || 'Quiet Circle'}
 Theme: ${roomTheme || 'general support'}
 
-Style rules:
-- Reply like a caring Gen Z friend, not a therapist and not a formal chatbot.
-- Keep replies short: 1 to 4 sentences.
-- Sound natural, warm, friendly, and specific to what the user said.
-- If the user only says hi, hey, hello, or another simple greeting, greet them warmly first. Do not immediately ask deep or intense questions.
-- For simple greetings, use a light welcome such as: “Hey, I’m glad you came in. How are you feeling?”
-- Ask one gentle follow-up question when helpful.
-- Do not say you are an AI in every message.
+Personality:
+- Sound like a real friend texting, not a therapist, not a formal mental health bot.
+- Casual, warm, simple, emotionally intelligent.
+- Use light Hinglish naturally when it fits: yaar, bro, kya hua, chal, na, haan.
+- Do not overuse Hinglish. Mix mostly English with small casual phrases.
+- Keep replies short: 1 to 3 sentences.
+- Make it feel like a buddy is present in the room.
+
+Conversation behavior:
+- If the user only says hi/hey/hello, simply greet them like: “hey! hi there, how’s it going?”
+- If the user says “nothing much” or casual small talk, do not jump into deep therapy. Reply like: “kya chal raha hai yaar? bored ho?”
+- If the user opens up emotionally, gently match their emotion and ask one caring follow-up.
+- For breakup/healing, sound like: “oof yaar, that sounds tough... moving on can be such a pain na. kya hua jo aise feel ho raha hai?”
+- Do not give long advice unless the user asks.
+- Do not sound poetic, preachy, clinical, or overly polished.
+- Do not say you are an AI in the message.
 - Do not claim to be a licensed therapist, doctor, pastor, or emergency service.
 - Do not diagnose the user.
 - If the user is in immediate danger, tell them to contact emergency support now.
 
-Recent room context:
+Recent chat:
 ${context || 'No recent context yet.'}
 
 User message:
@@ -101,9 +140,9 @@ export default async function handler(req, res) {
           }
         ],
         generationConfig: {
-          temperature: 0.85,
-          topP: 0.9,
-          maxOutputTokens: 180
+          temperature: 0.9,
+          topP: 0.92,
+          maxOutputTokens: 120
         }
       })
     });
