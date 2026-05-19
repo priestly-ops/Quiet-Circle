@@ -42,3 +42,21 @@ export function mapDbMessage(row) {
     source: 'supabase'
   };
 }
+
+export function subscribeToRoomMessages(onInsert) {
+  if (!isSupabaseConfigured) return null;
+
+  return supabase
+    .channel('quiet-circle-room-messages')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'room_messages' },
+      payload => onInsert(payload.new)
+    )
+    .subscribe();
+}
+
+export async function unsubscribeFromRoomMessages(channel) {
+  if (!channel || !isSupabaseConfigured) return;
+  await supabase.removeChannel(channel);
+}
