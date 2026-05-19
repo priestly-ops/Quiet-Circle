@@ -12,7 +12,7 @@ export default function RoomCard({ room, selected, onSelect }) {
       </div>
 
       <p>{room.desc}</p>
-      <small>{room.aiName} · AI guide available</small>
+      <small>Open circle</small>
     </button>
   );
 }
