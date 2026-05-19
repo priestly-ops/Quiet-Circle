@@ -1,24 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
-
-const rooms = [
-  { id: '2am', icon: '🌙', name: '2 AM Thoughts', theme: 'Loneliness', members: 1, desc: 'For heavy thoughts that show up late at night.', aiName: 'Night Willow' },
-  { id: 'exam', icon: '📚', name: 'Exam Pressure', theme: 'Stress', members: 1, desc: 'A quiet room for students under pressure.', aiName: 'Study Sage' },
-  { id: 'work', icon: '☕', name: 'Corporate Burnout', theme: 'Work', members: 1, desc: 'Talk through work stress without judgment.', aiName: 'Soft Anchor' },
-  { id: 'healing', icon: '🌱', name: 'Breakup Healing', theme: 'Healing', members: 1, desc: 'A softer place for moving forward slowly.', aiName: 'Green Finch' }
-];
-const crisisResources = [{ name: 'Emergency Services', phone: '911', desc: 'Call immediately if you or someone else is in danger.' },{ name: '988 Suicide & Crisis Lifeline', phone: '988', desc: '24/7 confidential support in the United States.' },{ name: 'Crisis Text Line', phone: 'Text HOME to 741741', desc: 'Free crisis support by text.' }];
-const journalPrompts = ['What emotion needs space today?', 'What did you survive quietly this week?', 'What would you say to a friend feeling this way?', 'What is one small thing that can make the next hour gentler?'];
-const starterMessages = [{ from: 'Quiet Circle', text: "Hi, I'm here with you. What feels heavy today?" }];
-const DEMO_PROFILE_ID = '00000000-0000-0000-0000-000000000001';
-const adjectives = ['Quiet', 'Gentle', 'Moon', 'Calm', 'Soft', 'Brave', 'Warm', 'Hidden', 'Kind', 'Silver'];
-const nouns = ['Willow', 'Leaf', 'Star', 'River', 'Cloud', 'Lantern', 'Anchor', 'Finch', 'Meadow', 'Stone'];
-const crisisWords = ['suicide', 'kill myself', 'end my life', 'hurt myself', 'self harm', 'want to die', 'overdose', 'can’t go on', "can't go on"];
-function getSaved(key, fallback) { try { const data = localStorage.getItem(key); return data ? JSON.parse(data) : fallback; } catch { return fallback; } }
-function makeAnonName() { return `${adjectives[Math.floor(Math.random()*adjectives.length)]} ${nouns[Math.floor(Math.random()*nouns.length)]}`; }
-function isCrisisText(text) { return crisisWords.some(word => text.toLowerCase().includes(word)); }
-function safetyReply() { return 'I’m really sorry you’re feeling this much pain. I can’t be your only support right now. If you might hurt yourself or are in danger, please call 911 or 988 now, or text HOME to 741741. If you can, move near another person and tell them you need help staying safe.'; }
-function humanReply(text) { if (isCrisisText(text)) return safetyReply(); const lower = text.toLowerCase(); if (lower.includes('alone') || lower.includes('lonely')) return `I get that. Sometimes feeling alone is the loudest part. I’m here in this circle with you — what made it feel strongest today?`; if (lower.includes('stress') || lower.includes('exam') || lower.includes('work')) return `That sounds like a lot to hold at once. Maybe start by naming the one thing that feels most urgent, not everything at once.`; if (lower.includes('sad') || lower.includes('break')) return `I’m sorry. That kind of hurt can come in waves. You don’t have to explain it perfectly here — just say the part that hurts most right now.`; return `I hear you. I’m not here to fix you, just to sit with you for a minute. What would make the next ten minutes a little easier?`; }
+import { DEMO_PROFILE_ID, crisisResources, defaultRoomMessages, journalPrompts, rooms, starterMessages } from './data/appData';
+import { getSaved, humanReply, isCrisisText, makeAnonName, safetyReply } from './utils/helpers';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -35,11 +18,10 @@ export default function App() {
   const [moods, setMoods] = useState(() => getSaved('qc_moods', []));
   const [journalText, setJournalText] = useState(''), [journals, setJournals] = useState(() => getSaved('qc_journals', []));
   const [messages, setMessages] = useState(() => getSaved('qc_messages', starterMessages)), [chatInput, setChatInput] = useState('');
-  const [roomMessagesById, setRoomMessagesById] = useState(() => getSaved('qc_room_messages_by_id', {'2am': [{ user: 'Night Willow', text: 'I’m here for a bit. No rush to say it perfectly.' }], exam: [{ user: 'Study Sage', text: 'One page, one breath, one small step. That counts.' }], work: [{ user: 'Soft Anchor', text: 'Burnout makes even small things feel heavy. I’m listening.' }], healing: [{ user: 'Green Finch', text: 'Healing is not linear. Today can be messy and still count.' }]}));
+  const [roomMessagesById, setRoomMessagesById] = useState(() => getSaved('qc_room_messages_by_id', defaultRoomMessages));
   const [roomInput, setRoomInput] = useState(''), [reports, setReports] = useState(() => getSaved('qc_reports', [])), [feedback, setFeedback] = useState('');
   const roomMessages = roomMessagesById[selectedRoom.id] || [];
   const averageMood = useMemo(() => moods.length ? (moods.reduce((sum, item) => sum + item.score, 0) / moods.length).toFixed(1) : 'No check-ins yet', [moods]);
-  const currentProfileId = session?.user?.id || DEMO_PROFILE_ID;
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -53,8 +35,29 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function syncProfile(next, user = session?.user, mode = authMode || 'demo') { if (isSupabaseConfigured) { await supabase.from('profiles').upsert({ id: user ? undefined : DEMO_PROFILE_ID, user_id: user?.id, email: user?.email || email || null, auth_provider: mode, display_name: next.name, age_range: next.age, support_preference: next.intent, ai_persona: next.persona }); } }
-  async function enterApp(mode) { const next = { ...profile, name: profile.name || makeAnonName() }; setProfile(next); localStorage.setItem('qc_profile', JSON.stringify(next)); if (!isSupabaseConfigured || mode === 'guest') { localStorage.setItem('qc_entered', JSON.stringify(true)); setEntered(true); setAuthMode(mode); return; } try { if (mode === 'google') { localStorage.setItem('qc_profile', JSON.stringify(next)); await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } }); return; } if (!email.trim()) { setAuthNotice('Enter your email first.'); return; } const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } }); if (error) throw error; await syncProfile(next, null, 'email_magic_link'); setAuthNotice('Magic link sent. Check your email. For beta preview, you can continue as guest.'); } catch (err) { setAuthNotice(err.message || 'Auth setup needs provider configuration. Continuing in beta mode.'); } }
+  async function syncProfile(next, user = session?.user, mode = authMode || 'demo') {
+    if (isSupabaseConfigured) {
+      await supabase.from('profiles').upsert({ id: user ? undefined : DEMO_PROFILE_ID, user_id: user?.id, email: user?.email || email || null, auth_provider: mode, display_name: next.name, age_range: next.age, support_preference: next.intent, ai_persona: next.persona });
+    }
+  }
+
+  async function enterApp(mode) {
+    const next = { ...profile, name: profile.name || makeAnonName() };
+    setProfile(next);
+    localStorage.setItem('qc_profile', JSON.stringify(next));
+    if (!isSupabaseConfigured || mode === 'guest') { localStorage.setItem('qc_entered', JSON.stringify(true)); setEntered(true); setAuthMode(mode); return; }
+    try {
+      if (mode === 'google') { localStorage.setItem('qc_profile', JSON.stringify(next)); await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } }); return; }
+      if (!email.trim()) { setAuthNotice('Enter your email first.'); return; }
+      const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } });
+      if (error) throw error;
+      await syncProfile(next, null, 'email_magic_link');
+      setAuthNotice('Magic link sent. Check your email. For beta preview, you can continue as guest.');
+    } catch (err) {
+      setAuthNotice(err.message || 'Auth setup needs provider configuration. Continuing in beta mode.');
+    }
+  }
+
   async function signOut() { if (isSupabaseConfigured && session) await supabase.auth.signOut(); localStorage.removeItem('qc_entered'); setSession(null); setEntered(false); setCloudStatus(isSupabaseConfigured ? 'Signed out' : 'Local demo mode'); }
   async function saveProfile(next) { setProfile(next); localStorage.setItem('qc_profile', JSON.stringify(next)); if (isSupabaseConfigured) { await syncProfile(next); setCloudStatus('Profile synced to Supabase'); } }
   async function addMood() { const entry = { score: Number(moodScore), note: moodNote || 'No note', at: new Date().toLocaleString() }; const next = [entry, ...moods]; setMoods(next); localStorage.setItem('qc_moods', JSON.stringify(next)); if (isSupabaseConfigured) { await supabase.from('mood_checkins').insert({ profile_id: session ? null : DEMO_PROFILE_ID, user_id: session?.user?.id, mood_score: entry.score, note: entry.note }); setCloudStatus('Mood saved to Supabase'); } setMoodNote(''); }
