@@ -14,50 +14,94 @@ function hasCrisisLanguage(text = '') {
   return crisisTerms.some((term) => clean.includes(term));
 }
 
-function buildSystemPrompt({ roomName, roomTheme, recentMessages }) {
-  const context = Array.isArray(recentMessages)
-    ? recentMessages.slice(-8).map((item) => `${item.user || item.from || 'Someone'}: ${item.text}`).join('\n')
-    : '';
+function cleanMessageText(item = {}) {
+  return String(item.text || item.content || '').trim();
+}
 
-  return `You are a warm, non-clinical emotional support companion on Quiet Circle.
-You are NOT a therapist.
-Your role is to listen, reflect, gently support, encourage, and motivate the user in a human way.
-Always respond in the same language or style the user writes in, including English, Hindi, Hinglish, or mixed casual texting.
-Never diagnose.
-Never give medical advice.
-If the user expresses suicidal ideation or self-harm intent, immediately acknowledge their pain and surface crisis resources.
-Keep responses short, warm, natural, and human-feeling — usually 2 to 4 sentences max.
+function uniqueRecentMessages(messages = []) {
+  const seen = new Set();
+  return messages
+    .filter(Boolean)
+    .map((item) => ({
+      speaker: item.user || item.from || item.role || 'Someone',
+      text: cleanMessageText(item)
+    }))
+    .filter((item) => item.text)
+    .filter((item) => {
+      const key = `${item.speaker}:${item.text}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(-8);
+}
+
+function buildSystemPrompt({ roomName, roomTheme, recentMessages, message }) {
+  const recent = uniqueRecentMessages(recentMessages);
+  const context = recent.map((item) => `${item.speaker}: ${item.text}`).join('\n');
+  const previousAssistantReplies = recent
+    .filter((item) => ['quiet circle', 'karan', 'assistant', 'buddy'].includes(String(item.speaker).toLowerCase()))
+    .map((item) => `- ${item.text}`)
+    .join('\n');
+
+  return `You are Karan, a warm, non-clinical emotional support companion inside Quiet Circle.
+You are NOT a therapist, doctor, pastor, or emergency service.
+Your goal is to understand the user's latest message and reply to that exact message, not to give a generic wellness response.
+
+Hard rules:
+- The latest user message is the source of truth: "${String(message || '').trim()}".
+- Do not repeat previous assistant replies, sentence patterns, or generic lines.
+- Do not answer with the same message twice.
+- Do not ignore the user's specific words, situation, emotion, or question.
+- If the user asks a direct question, answer it first.
+- If the user shares pain, reflect the specific detail they shared before giving support.
+- Ask at most one gentle follow-up question.
+- Keep replies short: 2 to 4 sentences.
+- Use simple, natural texting language.
+- Match the user's language and style, including English, Hindi, Hinglish, or mixed casual texting.
+- Use slang like yaar/bro only when it fits the user's tone. Do not force it.
+- Never diagnose or give medical advice.
+- If the user expresses self-harm or suicidal intent, immediately focus on safety resources.
 
 App context:
-- Companion display name: Karan.
 - Room: ${roomName || 'Quiet Circle'}.
 - Theme: ${roomTheme || 'general support'}.
 
-Tone guidance:
-- Sound like a real supportive friend texting, not a formal wellness bot.
-- Casual and caring is good: yaar, bro, kya hua, na, haan may be used naturally when the user uses Hinglish or casual Indian English.
-- Do not overuse slang. Match the user’s tone.
-- The AI should NEVER send the first message. Wait for the user to speak first.
-- If the user asks a direct question, answer it naturally first instead of always replying with another question.
-- Do not interrogate the user.
-- Only ask a gentle follow-up question when it feels emotionally natural.
-- Be encouraging and motivating in a soft human way.
-- If the user shares failure, sadness, rejection, or heartbreak, encourage them realistically without sounding fake or overly motivational.
-- If the user says hi/hello/hey, greet casually first and ask how they are doing.
-- If the user says nothing much or makes small talk, keep it light first instead of jumping into deep therapy.
-- If the user shares pain, reflect the specific detail they shared.
-- Do not repeat generic lines.
-- Do not claim to be a doctor, pastor, licensed therapist, or emergency service.
+Recent chat for context only, not for repetition:
+${context || 'No recent context yet.'}
 
-Recent chat:
-${context || 'No recent context yet.'}`;
+Previous assistant replies to avoid repeating:
+${previousAssistantReplies || 'None.'}`;
+}
+
+function isWeakReply(reply = '', userMessage = '') {
+  const cleanReply = normalize(reply);
+  const cleanUser = normalize(userMessage);
+  if (!cleanReply || cleanReply.length < 8) return true;
+  if (cleanReply === cleanUser) return true;
+  const genericReplies = [
+    'i hear you',
+    'tell me more',
+    'what happened',
+    'i am listening',
+    "i'm listening"
+  ];
+  return cleanReply.length < 45 && genericReplies.some((line) => cleanReply.includes(line));
 }
 
 async function callClaude({ message, roomName, roomTheme, recentMessages }) {
+  const system = buildSystemPrompt({ roomName, roomTheme, recentMessages, message });
   const response = await fetch(CLAUDE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: CLAUDE_MODEL, max_tokens: 220, temperature: 0.85, system: buildSystemPrompt({ roomName, roomTheme, recentMessages }), messages: [{ role: 'user', content: message }] })
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 220,
+      temperature: 0.65,
+      top_p: 0.9,
+      system,
+      messages: [{ role: 'user', content: message }]
+    })
   });
   if (!response.ok) throw new Error('Claude request failed');
   const data = await response.json();
@@ -65,11 +109,14 @@ async function callClaude({ message, roomName, roomTheme, recentMessages }) {
 }
 
 async function callGemini({ message, roomName, roomTheme, recentMessages }) {
-  const prompt = `${buildSystemPrompt({ roomName, roomTheme, recentMessages })}\n\nUser message:\n${message}`;
+  const prompt = `${buildSystemPrompt({ roomName, roomTheme, recentMessages, message })}\n\nReply to this latest user message only:\n${message}`;
   const response = await fetch(`${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.85, topP: 0.92, maxOutputTokens: 220 } })
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.65, topP: 0.9, maxOutputTokens: 220 }
+    })
   });
   if (!response.ok) throw new Error('Gemini request failed');
   const data = await response.json();
@@ -90,7 +137,7 @@ export default async function handler(req, res) {
     if (process.env.ANTHROPIC_API_KEY) {
       try {
         const reply = await callClaude({ message, roomName, roomTheme, recentMessages });
-        if (reply) return res.status(200).json({ reply, source: 'claude' });
+        if (reply && !isWeakReply(reply, message)) return res.status(200).json({ reply, source: 'claude' });
       } catch (error) {
         console.error('Claude fallback:', error.message);
       }
@@ -99,7 +146,7 @@ export default async function handler(req, res) {
     if (process.env.GEMINI_API_KEY) {
       try {
         const reply = await callGemini({ message, roomName, roomTheme, recentMessages });
-        if (reply) return res.status(200).json({ reply, source: 'gemini' });
+        if (reply && !isWeakReply(reply, message)) return res.status(200).json({ reply, source: 'gemini' });
       } catch (error) {
         console.error('Gemini fallback:', error.message);
       }
