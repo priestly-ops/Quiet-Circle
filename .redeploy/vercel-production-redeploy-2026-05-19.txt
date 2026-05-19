@@ -1,0 +1,3 @@
+Trigger production redeploy after adding Gemini environment variables in Vercel.
+Timestamp: 2026-05-19
+Purpose: ensure Production deployment picks up GEMINI_API_KEY and GEMINI_MODEL.
