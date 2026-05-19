@@ -72,34 +72,15 @@ export default function App() {
   const nav = [['dashboard', 'Home'], ['profile', 'Profile'], ['mood', 'Mood'], ['journal', 'Journal'], ['companion', 'Companion'], ['rooms', 'Circles'], ['crisis', 'Safety'], ['admin', 'Admin']];
 
   if (!entered) {
-    return (
-      <LandingPage
-        profile={profile}
-        email={email}
-        setEmail={setEmail}
-        authNotice={authNotice}
-        saveProfile={saveProfile}
-        makeAnonName={makeAnonName}
-        enterApp={enterApp}
-      />
-    );
+    return <LandingPage profile={profile} email={email} setEmail={setEmail} authNotice={authNotice} saveProfile={saveProfile} makeAnonName={makeAnonName} enterApp={enterApp} />;
   }
 
   return (
     <div className="appShell">
-      <Sidebar
-        profile={profile}
-        session={session}
-        nav={nav}
-        active={active}
-        setActive={setActive}
-        cloudStatus={cloudStatus}
-        signOut={signOut}
-      />
-
+      <Sidebar profile={profile} session={session} nav={nav} active={active} setActive={setActive} cloudStatus={cloudStatus} signOut={signOut} />
       <main className="main">
         {active === 'dashboard' && <section className="page"><div className="heroPanel"><div><p className="eyebrow">A gentle check-in space</p><h2>You do not have to carry everything alone.</h2><p>Quiet Circle helps you slow down, write honestly, and connect with calm anonymous support when life feels too loud.</p><div className="heroActions"><button onClick={() => setActive('mood')}>Check in now</button><button className="secondaryBtn" onClick={() => setActive('companion')}>Talk to companion</button></div></div><div className="breathOrb"><span>Breathe</span></div></div><div className="moodStrip"><span>🌿 Breathe</span><span>📝 Reflect</span><span>🤍 Be heard</span><span>🛟 Stay safe</span></div><div className="statsGrid"><div className="stat"><span>{averageMood}</span><p>Average mood</p></div><div className="stat"><span>{journals.length}</span><p>Journal entries</p></div><div className="stat"><span>{reports.length}</span><p>Reports pending</p></div><div className="stat"><span>{Object.values(roomMessagesById).flat().length}</span><p>Circle messages</p></div></div><div className="grid two"><div className="card featureCard"><h3>Guided reflection</h3><p>{journalPrompts[0]}</p><button onClick={() => { setJournalText(journalPrompts[0] + '\n\n'); setActive('journal'); }}>Start writing</button></div><div className="card featureCard"><h3>Suggested circle</h3><p>2 AM Thoughts — a soft space for late-night emotions.</p><button onClick={() => { setSelectedRoom(rooms[0]); setActive('rooms'); }}>Join circle</button></div></div></section>}
-        {active === 'rooms' && <section className="page"><p className="eyebrow">Anonymous support circles</p><h2>Support Circles</h2><div className="grid two">{rooms.map(r => <RoomCard key={r.id} room={r} selected={selectedRoom.id === r.id} onSelect={setSelectedRoom} />)}</div></section>}
+        {active === 'rooms' && <section className="page"><p className="eyebrow">Anonymous support circles</p><h2>Support Circles</h2><div className="grid two">{rooms.map(r => <RoomCard key={r.id} room={r} selected={selectedRoom.id === r.id} onSelect={setSelectedRoom} />)}</div><div className="card wide"><h3>{selectedRoom.icon} {selectedRoom.name}</h3><p className="muted">If no one else is active, {selectedRoom.aiName} will respond slowly like a real circle member.</p><div className="chatWindow">{roomMessages.map((m, i) => <div className={m.user === profile.name ? 'msg user' : 'msg bot'} key={i}><strong>{m.user}</strong><p>{m.text}</p><button className="linkBtn" onClick={() => reportContent('message', m.text)}>Report</button></div>)}{aiTyping && <div className="typingBubble">{selectedRoom.aiName} is typing slowly…</div>}</div><div className="composer"><input value={roomInput} onChange={e => setRoomInput(e.target.value)} placeholder={`Message ${selectedRoom.name}...`} onKeyDown={e => e.key === 'Enter' && sendRoomMessage()} /><button onClick={sendRoomMessage}>Send</button></div></div></section>}
       </main>
     </div>
   );
