@@ -34,9 +34,9 @@ function moodLabel(score) {
   return 'stormy thoughts';
 }
 
-function MessageActions({ message, onReport, isAi }) {
+function MessageActions({ message, onReport, isBuddy }) {
   const [open, setOpen] = useState(false);
-  if (isAi) return null;
+  if (isBuddy) return null;
 
   return (
     <div className="messageActions">
@@ -56,7 +56,8 @@ export default function App() {
   const [authMode, setAuthMode] = useState('email');
   const [email, setEmail] = useState('');
   const [authNotice, setAuthNotice] = useState('');
-  const [selectedRoom, setSelectedRoom] = useState(rooms[0]);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [roomOpen, setRoomOpen] = useState(false);
   const [aiTyping, setAiTyping] = useState(false);
   const [active, setActive] = useState('dashboard');
   const [cloudStatus, setCloudStatus] = useState(isSupabaseConfigured ? 'Cloud ready' : 'Your data is saved on this device');
@@ -73,9 +74,10 @@ export default function App() {
   const [showLocalNotice, setShowLocalNotice] = useState(() => !isSupabaseConfigured && !getSaved('qc_local_notice_seen', false));
   const [theme, setTheme] = useState(() => getSaved('qc_theme', 'system'));
 
+  const currentRoom = selectedRoom || rooms[0];
   const isAdmin = profile?.role === 'admin' || session?.user?.app_metadata?.role === 'admin';
   const nav = useMemo(() => isAdmin ? [...navBase, ['admin', 'Admin']] : navBase, [isAdmin]);
-  const roomMessages = roomMessagesById[selectedRoom.id] || [];
+  const roomMessages = roomMessagesById[currentRoom.id] || [];
   const allRoomMessages = Object.values(roomMessagesById).flat();
   const averageMood = useMemo(() => moods.length ? (moods.reduce((sum, item) => sum + item.score, 0) / moods.length).toFixed(1) : 'No check-ins yet', [moods]);
   const latestMood = moods[0]?.score ?? moodScore;
@@ -199,23 +201,34 @@ export default function App() {
     setJournalText('');
   }
 
+  function openRoom(room) {
+    setSelectedRoom(room);
+    setRoomOpen(true);
+  }
+
+  function backToRooms() {
+    setRoomOpen(false);
+    setRoomInput('');
+    setAiTyping(false);
+  }
+
   function sendCompanionMessage() {
     if (!chatInput.trim()) return;
     const userText = chatInput.trim();
     const userMsg = { from: 'You', text: userText };
-    let reply = 'I hear you. Let us make this moment smaller: take one slow breath, name the feeling, and choose one kind next step. If you are in immediate danger, please contact emergency support now.';
+    let reply = humanReply(userText, { id: companionMode.id });
 
     if (isCrisisText(userText)) {
       reply = safetyReply();
     } else if (companionMode.id === 'future') {
-      reply = 'I remember this season. You thought you were behind, but you were quietly becoming stronger. Take the next tiny step, not the whole mountain.';
+      reply = 'I know this feels huge right now. But future you is not disappointed in you — future you is proud you kept going even when it was messy.';
     } else if (companionMode.id === 'prayer') {
-      reply = 'God, meet them gently in this moment. Give them calm for the next breath, clarity for the next step, and the reminder that they are not alone.';
+      reply = 'God, please give them peace for this moment and strength for the next step. Remind them they are seen, loved, and not alone.';
     } else if (companionMode.id === 'text') {
-      reply = 'Before sending it, try this softer version: “I need space to process this clearly. I do not want to react from hurt, so I’ll respond when I’m calmer.”';
+      reply = 'Maybe don’t send the raw version yet. Try: “I’m hurt and I need some space before I respond properly.” It says the truth without creating more damage.';
     }
 
-    const next = [...messages, userMsg, { from: 'Quiet Circle AI companion', text: reply }];
+    const next = [...messages, userMsg, { from: 'Quiet Circle', text: reply }];
     setMessages(next);
     localStorage.setItem('qc_messages', JSON.stringify(next));
     setChatInput('');
@@ -227,13 +240,13 @@ export default function App() {
     const userText = roomInput.trim();
     const msg = { user: profile.name || 'Anonymous', text: userText, type: 'human' };
     const nextForRoom = [...roomMessages, msg];
-    const nextAll = { ...roomMessagesById, [selectedRoom.id]: nextForRoom };
+    const nextAll = { ...roomMessagesById, [currentRoom.id]: nextForRoom };
     setRoomMessagesById(nextAll);
     localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextAll));
     setRoomInput('');
 
     if (isSupabaseConfigured) {
-      await supabase.from('room_messages').insert({ room_key: selectedRoom.id, user_id: session?.user?.id, display_name: msg.user, message: msg.text });
+      await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session?.user?.id, display_name: msg.user, message: msg.text });
       setCloudStatus('Room message synced');
     }
 
@@ -244,13 +257,13 @@ export default function App() {
 
     setAiTyping(true);
     setTimeout(() => {
-      const aiMsg = { user: `${selectedRoom.aiName} · AI guide`, text: humanReply(userText), type: 'ai' };
+      const buddyMsg = { user: currentRoom.aiName, text: humanReply(userText, currentRoom), type: 'buddy' };
       const latest = getSaved('qc_room_messages_by_id', nextAll);
-      const updated = { ...latest, [selectedRoom.id]: [...(latest[selectedRoom.id] || []), aiMsg] };
+      const updated = { ...latest, [currentRoom.id]: [...(latest[currentRoom.id] || []), buddyMsg] };
       setRoomMessagesById(updated);
       localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated));
       setAiTyping(false);
-    }, 900);
+    }, 900 + Math.floor(Math.random() * 900));
   }
 
   async function reportContent(type, text) {
@@ -276,6 +289,11 @@ export default function App() {
     setShowLocalNotice(false);
   }
 
+  function changeActive(id) {
+    setActive(id);
+    if (id !== 'rooms') setRoomOpen(false);
+  }
+
   if (!entered) {
     return <LandingPage profile={profile} email={email} setEmail={setEmail} authNotice={authNotice} saveProfile={saveProfile} makeAnonName={makeAnonName} enterApp={enterApp} />;
   }
@@ -287,7 +305,7 @@ export default function App() {
         session={session}
         nav={nav}
         active={active}
-        setActive={setActive}
+        setActive={changeActive}
         cloudStatus={cloudStatus}
         signOut={signOut}
         theme={theme}
@@ -309,10 +327,10 @@ export default function App() {
               <div>
                 <p className="eyebrow">A private emotional reset space</p>
                 <h2>You do not have to carry everything alone.</h2>
-                <p>Quiet Circle helps you slow down, write honestly, and connect with transparent AI-guided anonymous support when life feels too loud.</p>
+                <p>Quiet Circle helps you slow down, write honestly, and connect with soft anonymous support when life feels too loud.</p>
                 <div className="heroActions">
                   <button onClick={() => setActive('mood')}>Check in now</button>
-                  <button className="secondaryBtn" onClick={() => setActive('companion')}>Talk to companion</button>
+                  <button className="secondaryBtn" onClick={() => setActive('rooms')}>Find a circle</button>
                 </div>
               </div>
               <button className={breathing ? 'breathOrb activeBreath' : 'breathOrb'} onClick={() => { setBreathing(!breathing); setBreathStep(0); }}>
@@ -350,19 +368,6 @@ export default function App() {
                 <button onClick={() => setActive('journal')}>Reflect on pattern</button>
               </div>
             </div>
-
-            <div className="grid two">
-              <div className="card featureCard">
-                <h3>Guided reflection</h3>
-                <p>{journalPrompts[0]}</p>
-                <button onClick={() => { setJournalText(`${journalPrompts[0]}\n\n`); setActive('journal'); }}>Start writing</button>
-              </div>
-              <div className="card featureCard">
-                <h3>Suggested circle</h3>
-                <p>2 AM Thoughts — a soft space for late-night emotions.</p>
-                <button onClick={() => { setSelectedRoom(rooms[0]); setActive('rooms'); }}>Join circle</button>
-              </div>
-            </div>
           </section>
         )}
 
@@ -390,14 +395,6 @@ export default function App() {
                     <option value="advice">Gentle advice</option>
                     <option value="prayer">Prayer</option>
                     <option value="both">Advice + prayer</option>
-                  </select>
-                </label>
-                <label>Companion tone
-                  <select value={profile.persona} onChange={e => setProfile({ ...profile, persona: e.target.value })}>
-                    <option value="supportive_friend">Supportive friend</option>
-                    <option value="future_self">Future healed self</option>
-                    <option value="faith_anchor">Faith anchor</option>
-                    <option value="calm_coach">Calm coach</option>
                   </select>
                 </label>
                 <button onClick={() => saveProfile(profile)}>Save profile</button>
@@ -449,7 +446,7 @@ export default function App() {
 
         {active === 'journal' && (
           <section className="page">
-            <p className="eyebrow">AI journal that talks back</p>
+            <p className="eyebrow">Private journal</p>
             <h2>Write what you cannot say out loud.</h2>
             <div className="grid two">
               <div className="card">
@@ -481,8 +478,8 @@ export default function App() {
 
         {active === 'companion' && (
           <section className="page">
-            <p className="eyebrow">Transparent AI companion</p>
-            <h2>Talk to Quiet Circle AI.</h2>
+            <p className="eyebrow">Private companion</p>
+            <h2>Talk to Quiet Circle.</h2>
             <div className="grid two">
               <div className="card">
                 <h3>Choose the mode you need</h3>
@@ -497,8 +494,8 @@ export default function App() {
               </div>
 
               <div className="card wide">
-                <h3>Quiet Circle AI companion</h3>
-                <p className="muted">Clearly labeled AI support. It can comfort, reflect, pray, and help rewrite emotional messages — it is not a human or emergency service.</p>
+                <h3>Quiet Circle</h3>
+                <p className="muted">A private buddy-style space for comfort, reflection, prayer, and emotional rewrites. Not an emergency service.</p>
                 <div className="chatWindow companionChat">
                   {messages.map((m, i) => (
                     <div className={m.from === 'You' ? 'msg user' : 'msg bot'} key={`${m.from}-${i}`}>
@@ -508,7 +505,7 @@ export default function App() {
                   ))}
                 </div>
                 <div className="composer">
-                  <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Tell the companion what feels heavy..." onKeyDown={e => e.key === 'Enter' && sendCompanionMessage()} />
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Say what feels heavy..." onKeyDown={e => e.key === 'Enter' && sendCompanionMessage()} />
                   <button onClick={sendCompanionMessage}>Send</button>
                 </div>
               </div>
@@ -517,33 +514,45 @@ export default function App() {
         )}
 
         {active === 'rooms' && (
-          <section className="page">
-            <p className="eyebrow">Anonymous support circles</p>
-            <h2>Support Circles</h2>
-            <div className="grid two">
-              {rooms.map(r => <RoomCard key={r.id} room={r} selected={selectedRoom.id === r.id} onSelect={setSelectedRoom} />)}
-            </div>
-            <div className="card wide circleChatCard">
-              <h3>{selectedRoom.icon} {selectedRoom.name}</h3>
-              <p className="muted">{selectedRoom.aiName} is clearly labeled as an AI circle guide. Real member counts are hidden until live presence is connected.</p>
-              <div className="chatWindow">
-                {roomMessages.map((m, i) => {
-                  const isAi = m.type === 'ai' || rooms.some(room => m.user?.startsWith(room.aiName));
-                  return (
-                    <div className={m.user === profile.name ? 'msg user' : 'msg bot'} key={`${m.user}-${i}`}>
-                      <strong>{isAi && !m.user.includes('AI') ? `${m.user} · AI guide` : m.user}</strong>
-                      <p>{m.text}</p>
-                      <MessageActions message={m} isAi={isAi} onReport={(text) => reportContent('message', text)} />
-                    </div>
-                  );
-                })}
-                {aiTyping && <div className="typingBubble">{selectedRoom.aiName} · AI guide is preparing a gentle reply…</div>}
+          <section className="page circlesPage">
+            {!roomOpen ? (
+              <>
+                <p className="eyebrow">Choose your circle</p>
+                <h2>What are you carrying today?</h2>
+                <p className="muted pageIntro">Pick a room first. The chat opens inside that circle so the experience feels focused, private, and less cluttered.</p>
+                <div className="grid circleGrid">
+                  {rooms.map(r => <RoomCard key={r.id} room={r} selected={currentRoom.id === r.id} onSelect={openRoom} />)}
+                </div>
+              </>
+            ) : (
+              <div className="card wide circleChatCard">
+                <div className="chatHeader">
+                  <button className="secondaryBtn" onClick={backToRooms}>← All circles</button>
+                  <div>
+                    <p className="eyebrow">{currentRoom.theme}</p>
+                    <h2>{currentRoom.icon} {currentRoom.name}</h2>
+                    <p className="muted">Anonymous room. If the room is quiet, a Quiet Circle buddy may keep you company.</p>
+                  </div>
+                </div>
+                <div className="chatWindow">
+                  {roomMessages.map((m, i) => {
+                    const isBuddy = m.type === 'buddy' || rooms.some(room => m.user === room.aiName);
+                    return (
+                      <div className={m.user === profile.name ? 'msg user' : 'msg bot'} key={`${m.user}-${i}`}>
+                        <strong>{m.user}</strong>
+                        <p>{m.text}</p>
+                        <MessageActions message={m} isBuddy={isBuddy} onReport={(text) => reportContent('message', text)} />
+                      </div>
+                    );
+                  })}
+                  {aiTyping && <div className="typingBubble">{currentRoom.aiName} is typing…</div>}
+                </div>
+                <div className="composer">
+                  <input value={roomInput} onChange={e => setRoomInput(e.target.value)} placeholder={`Message ${currentRoom.name}...`} onKeyDown={e => e.key === 'Enter' && sendRoomMessage()} />
+                  <button onClick={sendRoomMessage}>Send</button>
+                </div>
               </div>
-              <div className="composer">
-                <input value={roomInput} onChange={e => setRoomInput(e.target.value)} placeholder={`Message ${selectedRoom.name}...`} onKeyDown={e => e.key === 'Enter' && sendRoomMessage()} />
-                <button onClick={sendRoomMessage}>Send</button>
-              </div>
-            </div>
+            )}
           </section>
         )}
 
