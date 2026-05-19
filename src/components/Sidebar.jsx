@@ -12,6 +12,16 @@ export default function Sidebar({ profile, session, nav, active, setActive, clou
         </div>
       </div>
 
+      <div className="themeDock">
+        <div>
+          <strong>{themeLabel} mode</strong>
+          <p>Easy on the eyes at night.</p>
+        </div>
+        <button className="themeToggle" onClick={() => setTheme(nextTheme)} aria-label="Change app theme">
+          {theme === 'dark' ? 'Light' : theme === 'light' ? 'System' : 'Night'}
+        </button>
+      </div>
+
       <nav>
         {nav.map(([id, label]) => (
           <button key={id} className={active === id ? 'nav active' : 'nav'} onClick={() => setActive(id)}>
@@ -28,14 +38,6 @@ export default function Sidebar({ profile, session, nav, active, setActive, clou
           You are allowed to pause before you respond to the world.
         </p>
         <button className="linkBtn" onClick={signOut}>Sign out</button>
-      </div>
-
-      <div className="miniCard">
-        <strong>Appearance: {themeLabel}</strong>
-        <p>Use a softer screen for late-night check-ins.</p>
-        <button className="secondaryBtn wideBtn" onClick={() => setTheme(nextTheme)}>
-          Switch to {nextTheme}
-        </button>
       </div>
 
       <div className="safetyBox">
