@@ -14,76 +14,6 @@ function hasCrisisLanguage(text = '') {
   return crisisTerms.some((term) => clean.includes(term));
 }
 
-function isGreeting(text = '') {
-  const clean = normalize(text).replace(/[!?.\s]+$/g, '');
-  return ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo', 'sup', 'good morning', 'good afternoon', 'good evening'].includes(clean);
-}
-
-function isSmallTalk(text = '') {
-  const clean = normalize(text);
-  return ['nothing', 'nothing much', 'nothing much bro', 'nothing much yaar', 'nm', 'bored', 'im bored', "i'm bored", 'just chilling', 'chilling', 'fine', 'good', 'ok', 'okay'].includes(clean);
-}
-
-function pick(options) {
-  return options[Math.floor(Math.random() * options.length)];
-}
-
-function greetingReply() {
-  return pick(['hey! hi there, how’s it going?', 'heyy, kya chal raha hai?', 'hey bro, how are you doing?', 'hi yaar, what’s up?']);
-}
-
-function smallTalkReply() {
-  return pick(['kya chal raha hai yaar? bored ho?', 'haha same vibes sometimes. anything on your mind?', 'achha, chill scene. wanna talk about anything or just timepass?', 'okay okay. how’s your mood today though?']);
-}
-
-function contextualFallback(roomName, roomTheme, message) {
-  const clean = normalize(message);
-  if (isGreeting(message)) return greetingReply();
-  if (isSmallTalk(message)) return smallTalkReply();
-
-  if (clean.includes('exam') || clean.includes('fail') || clean.includes('failed') || clean.includes('grade') || roomTheme === 'Study') {
-    return pick([
-      'arre yaar, exam fail hona feels really bad, but it doesn’t mean you’re a failure. parents ko impress karne ka pressure bhi heavy hota hai — what happened exactly?',
-      'oof bro, that must be hurting. Is the bigger stress the exam result, or how your parents will react?',
-      'I get you yaar. One bad exam can make everything feel dark, but we can still figure out the next step. Which exam was it?'
-    ]);
-  }
-
-  if (clean.includes('career') || clean.includes('job') || clean.includes('parents') || clean.includes('impress')) {
-    return pick([
-      'oof yaar, trying to impress parents while dealing with career pressure is exhausting. What happened with your career recently?',
-      'I get it bro. When parents expect a lot, even one setback feels huge. Are they upset, or are you scared they will be?',
-      'that’s heavy yaar. Career pressure plus family expectations can mess with your head — tell me what went wrong.'
-    ]);
-  }
-
-  if (clean.includes('dark') || clean.includes('move on') || clean.includes('moving on') || clean.includes('breakup') || roomTheme === 'Heartbreak') {
-    return pick([
-      'oof yaar, that sounds really heavy. Moving on can feel like everything is dark for a while — kya hua?',
-      'I’m sorry bro. That “trying to move on” phase hurts a lot. Did something trigger the feeling today?',
-      'haan yaar, moving on is not simple. Tell me what part is hurting the most right now.'
-    ]);
-  }
-
-  if (clean.includes('family') || roomTheme === 'Family') {
-    return pick([
-      'family pressure hits different yaar. What did they say or do?',
-      'I get you bro, home stress can follow you everywhere. What happened today?',
-      'that sounds tiring yaar. Is it expectations, arguments, or feeling misunderstood?'
-    ]);
-  }
-
-  if (clean.includes('anxiety') || clean.includes('panic') || clean.includes('overthink') || clean.includes('scared')) {
-    return pick([
-      'okay yaar, pause for a sec. What thought is looping the most?',
-      'I hear you bro. Is this fear about something happening now, or a “what if” spiral?',
-      'that sounds overwhelming. Tell me the one thought that’s not leaving you alone.'
-    ]);
-  }
-
-  return `I hear you yaar. Tell me a little more — what’s making it feel this heavy?`;
-}
-
 function buildSystemPrompt({ roomName, roomTheme, recentMessages }) {
   const context = Array.isArray(recentMessages)
     ? recentMessages.slice(-8).map((item) => `${item.user || item.from || 'Someone'}: ${item.text}`).join('\n')
@@ -161,8 +91,8 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ reply: contextualFallback(roomName, roomTheme, message), source: 'fallback' });
+    return res.status(503).json({ error: 'No Claude or Gemini provider is configured. Add ANTHROPIC_API_KEY or GEMINI_API_KEY in Vercel.', source: 'not_configured' });
   } catch (error) {
-    return res.status(200).json({ reply: contextualFallback('this circle', 'support', req.body?.message), source: 'fallback' });
+    return res.status(503).json({ error: 'Claude and Gemini are unavailable right now.', source: 'provider_unavailable' });
   }
 }
