@@ -1,16 +1,25 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
-export async function saveRoomMessage({ session, roomKey, displayName, message }) {
+export function createClientMessageId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export async function saveRoomMessage({ session, roomKey, displayName, message, clientMessageId }) {
   if (!isSupabaseConfigured) return null;
+
+  const payload = {
+    room_key: roomKey,
+    user_id: session?.user?.id,
+    display_name: displayName,
+    message
+  };
+
+  if (clientMessageId) payload.client_message_id = clientMessageId;
 
   const { data, error } = await supabase
     .from('room_messages')
-    .insert({
-      room_key: roomKey,
-      user_id: session?.user?.id,
-      display_name: displayName,
-      message
-    })
+    .insert(payload)
     .select()
     .single();
 
@@ -23,7 +32,7 @@ export async function loadRoomHistory() {
 
   const { data, error } = await supabase
     .from('room_messages')
-    .select('id, room_key, display_name, message, created_at, user_id')
+    .select('id, room_key, display_name, message, created_at, user_id, client_message_id')
     .order('created_at', { ascending: true })
     .limit(250);
 
@@ -34,6 +43,7 @@ export async function loadRoomHistory() {
 export function mapDbMessage(row) {
   return {
     id: row.id,
+    clientMessageId: row.client_message_id,
     user: row.display_name || 'Anonymous',
     text: row.message,
     roomKey: row.room_key,
