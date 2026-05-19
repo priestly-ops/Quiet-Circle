@@ -6,6 +6,50 @@ import Sidebar from './components/Sidebar';
 import RoomCard from './components/RoomCard';
 import LandingPage from './pages/LandingPage';
 
+const navBase = [
+  ['dashboard', 'Home'],
+  ['profile', 'Profile'],
+  ['mood', 'Mood'],
+  ['journal', 'Journal'],
+  ['companion', 'Companion'],
+  ['rooms', 'Circles'],
+  ['crisis', 'Safety']
+];
+
+const companionModes = [
+  { id: 'future', label: 'Future healed self', prompt: 'Speak to me like the wiser, healed version of myself.' },
+  { id: 'vent', label: 'Just let me vent', prompt: 'Listen first. No fixing unless I ask.' },
+  { id: 'prayer', label: 'Prayer mode', prompt: 'Respond with a short prayer and calm encouragement.' },
+  { id: 'text', label: 'Text I should not send', prompt: 'Help me rewrite this message safely and maturely.' }
+];
+
+function daysCheckedIn(moods) {
+  return new Set(moods.map(item => String(item.at).split(',')[0])).size;
+}
+
+function moodLabel(score) {
+  if (score >= 8) return 'peaceful sunrise';
+  if (score >= 6) return 'cloudy but steady';
+  if (score >= 4) return 'heavy fog';
+  return 'stormy thoughts';
+}
+
+function MessageActions({ message, onReport, isAi }) {
+  const [open, setOpen] = useState(false);
+  if (isAi) return null;
+
+  return (
+    <div className="messageActions">
+      <button className="iconBtn" aria-label="Message options" onClick={() => setOpen(!open)}>⋯</button>
+      {open && (
+        <div className="messageMenu">
+          <button onClick={() => { onReport(message.text); setOpen(false); }}>Report message</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [entered, setEntered] = useState(() => getSaved('qc_entered', false));
@@ -15,7 +59,7 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState(rooms[0]);
   const [aiTyping, setAiTyping] = useState(false);
   const [active, setActive] = useState('dashboard');
-  const [cloudStatus, setCloudStatus] = useState(isSupabaseConfigured ? 'Cloud ready' : 'Local demo mode');
+  const [cloudStatus, setCloudStatus] = useState(isSupabaseConfigured ? 'Cloud ready' : 'Your data is saved on this device');
   const [profile, setProfile] = useState(() => getSaved('qc_profile', { name: makeAnonName(), age: '18-24', intent: 'both', persona: 'supportive_friend' }));
   const [moodScore, setMoodScore] = useState(6), [moodNote, setMoodNote] = useState('');
   const [moods, setMoods] = useState(() => getSaved('qc_moods', []));
@@ -23,24 +67,64 @@ export default function App() {
   const [messages, setMessages] = useState(() => getSaved('qc_messages', starterMessages)), [chatInput, setChatInput] = useState('');
   const [roomMessagesById, setRoomMessagesById] = useState(() => getSaved('qc_room_messages_by_id', defaultRoomMessages));
   const [roomInput, setRoomInput] = useState(''), [reports, setReports] = useState(() => getSaved('qc_reports', [])), [feedback, setFeedback] = useState('');
+  const [breathing, setBreathing] = useState(false);
+  const [breathStep, setBreathStep] = useState(0);
+  const [companionMode, setCompanionMode] = useState(companionModes[0]);
+  const [showLocalNotice, setShowLocalNotice] = useState(() => !isSupabaseConfigured && !getSaved('qc_local_notice_seen', false));
+  const [theme, setTheme] = useState(() => getSaved('qc_theme', 'system'));
+
+  const isAdmin = profile?.role === 'admin' || session?.user?.app_metadata?.role === 'admin';
+  const nav = useMemo(() => isAdmin ? [...navBase, ['admin', 'Admin']] : navBase, [isAdmin]);
   const roomMessages = roomMessagesById[selectedRoom.id] || [];
+  const allRoomMessages = Object.values(roomMessagesById).flat();
   const averageMood = useMemo(() => moods.length ? (moods.reduce((sum, item) => sum + item.score, 0) / moods.length).toFixed(1) : 'No check-ins yet', [moods]);
+  const latestMood = moods[0]?.score ?? moodScore;
+  const moodTrend = useMemo(() => [...moods].slice(0, 7).reverse(), [moods]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('qc_theme', JSON.stringify(theme));
+  }, [theme]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) { setSession(data.session); setEntered(true); localStorage.setItem('qc_entered', JSON.stringify(true)); setCloudStatus('Signed in securely'); }
+      if (data.session) {
+        setSession(data.session);
+        setEntered(true);
+        localStorage.setItem('qc_entered', JSON.stringify(true));
+        setCloudStatus('Signed in securely');
+      }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (nextSession) { setEntered(true); localStorage.setItem('qc_entered', JSON.stringify(true)); setCloudStatus('Signed in securely'); }
+      if (nextSession) {
+        setEntered(true);
+        localStorage.setItem('qc_entered', JSON.stringify(true));
+        setCloudStatus('Signed in securely');
+      }
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!breathing) return undefined;
+    const timer = setInterval(() => setBreathStep(step => (step + 1) % 3), 4000);
+    return () => clearInterval(timer);
+  }, [breathing]);
+
   async function syncProfile(next, user = session?.user, mode = authMode || 'demo') {
     if (isSupabaseConfigured) {
-      await supabase.from('profiles').upsert({ id: user ? undefined : DEMO_PROFILE_ID, user_id: user?.id, email: user?.email || email || null, auth_provider: mode, display_name: next.name, age_range: next.age, support_preference: next.intent, ai_persona: next.persona });
+      await supabase.from('profiles').upsert({
+        id: user ? undefined : DEMO_PROFILE_ID,
+        user_id: user?.id,
+        email: user?.email || email || null,
+        auth_provider: mode,
+        display_name: next.name,
+        age_range: next.age,
+        support_preference: next.intent,
+        ai_persona: next.persona
+      });
     }
   }
 
@@ -48,10 +132,22 @@ export default function App() {
     const next = { ...profile, name: profile.name || makeAnonName() };
     setProfile(next);
     localStorage.setItem('qc_profile', JSON.stringify(next));
-    if (!isSupabaseConfigured || mode === 'guest') { localStorage.setItem('qc_entered', JSON.stringify(true)); setEntered(true); setAuthMode(mode); return; }
+    if (!isSupabaseConfigured || mode === 'guest') {
+      localStorage.setItem('qc_entered', JSON.stringify(true));
+      setEntered(true);
+      setAuthMode(mode);
+      return;
+    }
     try {
-      if (mode === 'google') { localStorage.setItem('qc_profile', JSON.stringify(next)); await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } }); return; }
-      if (!email.trim()) { setAuthNotice('Enter your email first.'); return; }
+      if (mode === 'google') {
+        localStorage.setItem('qc_profile', JSON.stringify(next));
+        await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+        return;
+      }
+      if (!email.trim()) {
+        setAuthNotice('Enter your email first.');
+        return;
+      }
       const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin } });
       if (error) throw error;
       await syncProfile(next, null, 'email_magic_link');
@@ -61,15 +157,124 @@ export default function App() {
     }
   }
 
-  async function signOut() { if (isSupabaseConfigured && session) await supabase.auth.signOut(); localStorage.removeItem('qc_entered'); setSession(null); setEntered(false); setCloudStatus(isSupabaseConfigured ? 'Signed out' : 'Local demo mode'); }
-  async function saveProfile(next) { setProfile(next); localStorage.setItem('qc_profile', JSON.stringify(next)); if (isSupabaseConfigured) { await syncProfile(next); setCloudStatus('Profile synced to Supabase'); } }
-  async function addMood() { const entry = { score: Number(moodScore), note: moodNote || 'No note', at: new Date().toLocaleString() }; const next = [entry, ...moods]; setMoods(next); localStorage.setItem('qc_moods', JSON.stringify(next)); if (isSupabaseConfigured) { await supabase.from('mood_checkins').insert({ profile_id: session ? null : DEMO_PROFILE_ID, user_id: session?.user?.id, mood_score: entry.score, note: entry.note }); setCloudStatus('Mood saved to Supabase'); } setMoodNote(''); }
-  async function saveJournal() { if (!journalText.trim()) return; const entry = { text: journalText.trim(), at: new Date().toLocaleString(), mood: Number(moodScore) }; const next = [entry, ...journals]; setJournals(next); localStorage.setItem('qc_journals', JSON.stringify(next)); if (isSupabaseConfigured) { await supabase.from('journal_entries').insert({ profile_id: session ? null : DEMO_PROFILE_ID, user_id: session?.user?.id, content: entry.text, mood_score: entry.mood }); setCloudStatus('Journal saved to Supabase'); } setJournalText(''); }
-  function sendCompanionMessage() { if (!chatInput.trim()) return; const userMsg = { from: 'You', text: chatInput.trim() }; const botMsg = { from: 'Quiet Circle', text: isCrisisText(chatInput) ? safetyReply() : 'I hear you. Let us make this moment smaller: take one slow breath, name the feeling, and choose one kind next step. If you are in immediate danger, please contact emergency support now.' }; const next = [...messages, userMsg, botMsg]; setMessages(next); localStorage.setItem('qc_messages', JSON.stringify(next)); setChatInput(''); if (isCrisisText(userMsg.text)) setActive('crisis'); }
-  async function sendRoomMessage() { if (!roomInput.trim()) return; const userText = roomInput.trim(); const msg = { user: profile.name || 'Anonymous', text: userText }; const nextForRoom = [...roomMessages, msg]; const nextAll = { ...roomMessagesById, [selectedRoom.id]: nextForRoom }; setRoomMessagesById(nextAll); localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextAll)); setRoomInput(''); if (isSupabaseConfigured) { await supabase.from('room_messages').insert({ room_key: selectedRoom.id, user_id: session?.user?.id, display_name: msg.user, message: msg.text }); setCloudStatus('Room message synced to Supabase'); } if (isCrisisText(userText)) { setActive('crisis'); await reportContent('crisis_keyword', userText); } setAiTyping(true); setTimeout(() => { const aiMsg = { user: selectedRoom.aiName, text: humanReply(userText) }; const latest = getSaved('qc_room_messages_by_id', nextAll); const updated = { ...latest, [selectedRoom.id]: [...(latest[selectedRoom.id] || []), aiMsg] }; setRoomMessagesById(updated); localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated)); setAiTyping(false); }, 2600 + Math.floor(Math.random()*2200)); }
-  async function reportContent(type, text) { const report = { type, text, status: 'pending', at: new Date().toLocaleString() }; const next = [report, ...reports]; setReports(next); localStorage.setItem('qc_reports', JSON.stringify(next)); if (isSupabaseConfigured) { await supabase.from('moderation_reports').insert({ user_id: session?.user?.id, report_type: type, content: text, status: 'pending' }); setCloudStatus('Report sent to Supabase'); } if (type !== 'crisis_keyword') alert('Report submitted for admin review.'); }
-  function submitFeedback() { if (!feedback.trim()) return; alert('Thank you. Your beta feedback was saved locally for this MVP.'); setFeedback(''); }
-  const nav = [['dashboard', 'Home'], ['profile', 'Profile'], ['mood', 'Mood'], ['journal', 'Journal'], ['companion', 'Companion'], ['rooms', 'Circles'], ['crisis', 'Safety'], ['admin', 'Admin']];
+  async function signOut() {
+    if (isSupabaseConfigured && session) await supabase.auth.signOut();
+    localStorage.removeItem('qc_entered');
+    setSession(null);
+    setEntered(false);
+    setCloudStatus(isSupabaseConfigured ? 'Signed out' : 'Your data is saved on this device');
+  }
+
+  async function saveProfile(next) {
+    setProfile(next);
+    localStorage.setItem('qc_profile', JSON.stringify(next));
+    if (isSupabaseConfigured) {
+      await syncProfile(next);
+      setCloudStatus('Profile synced');
+    }
+  }
+
+  async function addMood() {
+    const entry = { score: Number(moodScore), note: moodNote || 'No note', at: new Date().toLocaleString() };
+    const next = [entry, ...moods];
+    setMoods(next);
+    localStorage.setItem('qc_moods', JSON.stringify(next));
+    if (isSupabaseConfigured) {
+      await supabase.from('mood_checkins').insert({ profile_id: session ? null : DEMO_PROFILE_ID, user_id: session?.user?.id, mood_score: entry.score, note: entry.note });
+      setCloudStatus('Mood saved');
+    }
+    setMoodNote('');
+  }
+
+  async function saveJournal() {
+    if (!journalText.trim()) return;
+    const entry = { text: journalText.trim(), at: new Date().toLocaleString(), mood: Number(moodScore) };
+    const next = [entry, ...journals];
+    setJournals(next);
+    localStorage.setItem('qc_journals', JSON.stringify(next));
+    if (isSupabaseConfigured) {
+      await supabase.from('journal_entries').insert({ profile_id: session ? null : DEMO_PROFILE_ID, user_id: session?.user?.id, content: entry.text, mood_score: entry.mood });
+      setCloudStatus('Journal saved');
+    }
+    setJournalText('');
+  }
+
+  function sendCompanionMessage() {
+    if (!chatInput.trim()) return;
+    const userText = chatInput.trim();
+    const userMsg = { from: 'You', text: userText };
+    let reply = 'I hear you. Let us make this moment smaller: take one slow breath, name the feeling, and choose one kind next step. If you are in immediate danger, please contact emergency support now.';
+
+    if (isCrisisText(userText)) {
+      reply = safetyReply();
+    } else if (companionMode.id === 'future') {
+      reply = 'I remember this season. You thought you were behind, but you were quietly becoming stronger. Take the next tiny step, not the whole mountain.';
+    } else if (companionMode.id === 'prayer') {
+      reply = 'God, meet them gently in this moment. Give them calm for the next breath, clarity for the next step, and the reminder that they are not alone.';
+    } else if (companionMode.id === 'text') {
+      reply = 'Before sending it, try this softer version: “I need space to process this clearly. I do not want to react from hurt, so I’ll respond when I’m calmer.”';
+    }
+
+    const next = [...messages, userMsg, { from: 'Quiet Circle AI companion', text: reply }];
+    setMessages(next);
+    localStorage.setItem('qc_messages', JSON.stringify(next));
+    setChatInput('');
+    if (isCrisisText(userMsg.text)) setActive('crisis');
+  }
+
+  async function sendRoomMessage() {
+    if (!roomInput.trim()) return;
+    const userText = roomInput.trim();
+    const msg = { user: profile.name || 'Anonymous', text: userText, type: 'human' };
+    const nextForRoom = [...roomMessages, msg];
+    const nextAll = { ...roomMessagesById, [selectedRoom.id]: nextForRoom };
+    setRoomMessagesById(nextAll);
+    localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextAll));
+    setRoomInput('');
+
+    if (isSupabaseConfigured) {
+      await supabase.from('room_messages').insert({ room_key: selectedRoom.id, user_id: session?.user?.id, display_name: msg.user, message: msg.text });
+      setCloudStatus('Room message synced');
+    }
+
+    if (isCrisisText(userText)) {
+      setActive('crisis');
+      await reportContent('crisis_keyword', userText);
+    }
+
+    setAiTyping(true);
+    setTimeout(() => {
+      const aiMsg = { user: `${selectedRoom.aiName} · AI guide`, text: humanReply(userText), type: 'ai' };
+      const latest = getSaved('qc_room_messages_by_id', nextAll);
+      const updated = { ...latest, [selectedRoom.id]: [...(latest[selectedRoom.id] || []), aiMsg] };
+      setRoomMessagesById(updated);
+      localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated));
+      setAiTyping(false);
+    }, 900);
+  }
+
+  async function reportContent(type, text) {
+    const report = { type, text, status: 'pending', at: new Date().toLocaleString() };
+    const next = [report, ...reports];
+    setReports(next);
+    localStorage.setItem('qc_reports', JSON.stringify(next));
+    if (isSupabaseConfigured) {
+      await supabase.from('moderation_reports').insert({ user_id: session?.user?.id, report_type: type, content: text, status: 'pending' });
+      setCloudStatus('Report sent');
+    }
+    if (type !== 'crisis_keyword') alert('Report submitted for admin review.');
+  }
+
+  function submitFeedback() {
+    if (!feedback.trim()) return;
+    alert('Thank you. Your beta feedback was saved locally for this MVP.');
+    setFeedback('');
+  }
+
+  function dismissLocalNotice() {
+    localStorage.setItem('qc_local_notice_seen', JSON.stringify(true));
+    setShowLocalNotice(false);
+  }
 
   if (!entered) {
     return <LandingPage profile={profile} email={email} setEmail={setEmail} authNotice={authNotice} saveProfile={saveProfile} makeAnonName={makeAnonName} enterApp={enterApp} />;
@@ -77,10 +282,325 @@ export default function App() {
 
   return (
     <div className="appShell">
-      <Sidebar profile={profile} session={session} nav={nav} active={active} setActive={setActive} cloudStatus={cloudStatus} signOut={signOut} />
+      <Sidebar
+        profile={profile}
+        session={session}
+        nav={nav}
+        active={active}
+        setActive={setActive}
+        cloudStatus={cloudStatus}
+        signOut={signOut}
+        theme={theme}
+        setTheme={setTheme}
+      />
+
       <main className="main">
-        {active === 'dashboard' && <section className="page"><div className="heroPanel"><div><p className="eyebrow">A gentle check-in space</p><h2>You do not have to carry everything alone.</h2><p>Quiet Circle helps you slow down, write honestly, and connect with calm anonymous support when life feels too loud.</p><div className="heroActions"><button onClick={() => setActive('mood')}>Check in now</button><button className="secondaryBtn" onClick={() => setActive('companion')}>Talk to companion</button></div></div><div className="breathOrb"><span>Breathe</span></div></div><div className="moodStrip"><span>🌿 Breathe</span><span>📝 Reflect</span><span>🤍 Be heard</span><span>🛟 Stay safe</span></div><div className="statsGrid"><div className="stat"><span>{averageMood}</span><p>Average mood</p></div><div className="stat"><span>{journals.length}</span><p>Journal entries</p></div><div className="stat"><span>{reports.length}</span><p>Reports pending</p></div><div className="stat"><span>{Object.values(roomMessagesById).flat().length}</span><p>Circle messages</p></div></div><div className="grid two"><div className="card featureCard"><h3>Guided reflection</h3><p>{journalPrompts[0]}</p><button onClick={() => { setJournalText(journalPrompts[0] + '\n\n'); setActive('journal'); }}>Start writing</button></div><div className="card featureCard"><h3>Suggested circle</h3><p>2 AM Thoughts — a soft space for late-night emotions.</p><button onClick={() => { setSelectedRoom(rooms[0]); setActive('rooms'); }}>Join circle</button></div></div></section>}
-        {active === 'rooms' && <section className="page"><p className="eyebrow">Anonymous support circles</p><h2>Support Circles</h2><div className="grid two">{rooms.map(r => <RoomCard key={r.id} room={r} selected={selectedRoom.id === r.id} onSelect={setSelectedRoom} />)}</div><div className="card wide"><h3>{selectedRoom.icon} {selectedRoom.name}</h3><p className="muted">If no one else is active, {selectedRoom.aiName} will respond slowly like a real circle member.</p><div className="chatWindow">{roomMessages.map((m, i) => <div className={m.user === profile.name ? 'msg user' : 'msg bot'} key={i}><strong>{m.user}</strong><p>{m.text}</p><button className="linkBtn" onClick={() => reportContent('message', m.text)}>Report</button></div>)}{aiTyping && <div className="typingBubble">{selectedRoom.aiName} is typing slowly…</div>}</div><div className="composer"><input value={roomInput} onChange={e => setRoomInput(e.target.value)} placeholder={`Message ${selectedRoom.name}...`} onKeyDown={e => e.key === 'Enter' && sendRoomMessage()} /><button onClick={sendRoomMessage}>Send</button></div></div></section>}
+        {showLocalNotice && (
+          <div className="noticeBanner">
+            <strong>Your entries are private to this device right now.</strong>
+            <span>Sign in later to sync across devices. Clearing this browser can remove local entries.</span>
+            <button className="linkBtn" onClick={dismissLocalNotice}>Got it</button>
+          </div>
+        )}
+
+        {active === 'dashboard' && (
+          <section className="page">
+            <div className="heroPanel">
+              <div>
+                <p className="eyebrow">A private emotional reset space</p>
+                <h2>You do not have to carry everything alone.</h2>
+                <p>Quiet Circle helps you slow down, write honestly, and connect with transparent AI-guided anonymous support when life feels too loud.</p>
+                <div className="heroActions">
+                  <button onClick={() => setActive('mood')}>Check in now</button>
+                  <button className="secondaryBtn" onClick={() => setActive('companion')}>Talk to companion</button>
+                </div>
+              </div>
+              <button className={breathing ? 'breathOrb activeBreath' : 'breathOrb'} onClick={() => { setBreathing(!breathing); setBreathStep(0); }}>
+                <span>{breathing ? ['Breathe in', 'Hold softly', 'Breathe out'][breathStep] : 'Tap to breathe'}</span>
+              </button>
+            </div>
+
+            <div className="moodStrip">
+              <button onClick={() => setActive('mood')}>🌿 Breathe</button>
+              <button onClick={() => setActive('journal')}>📝 Reflect</button>
+              <button onClick={() => setActive('rooms')}>🤍 Be heard</button>
+              <button onClick={() => setActive('crisis')}>🛟 Stay safe</button>
+            </div>
+
+            <div className="statsGrid">
+              <div className="stat"><span>{averageMood}</span><p>Average mood</p></div>
+              <div className="stat"><span>{daysCheckedIn(moods)}</span><p>Days checked in</p></div>
+              <div className="stat"><span>{journals.length}</span><p>Journal entries</p></div>
+              <div className="stat"><span>{allRoomMessages.length}</span><p>Circle messages</p></div>
+            </div>
+
+            <div className="grid two">
+              <div className="card featureCard">
+                <h3>Emotional weather</h3>
+                <p className="weatherText">Today feels like <strong>{moodLabel(Number(latestMood))}</strong>.</p>
+                <p className="muted">Shareable, simple, and more human than a number.</p>
+                <button onClick={() => setActive('mood')}>Update weather</button>
+              </div>
+
+              <div className="card featureCard">
+                <h3>7-day mood pulse</h3>
+                <div className="sparkline" aria-label="7 day mood trend">
+                  {moodTrend.length ? moodTrend.map((item, index) => <span key={`${item.at}-${index}`} style={{ height: `${Math.max(12, item.score * 10)}%` }} />) : <em>No mood data yet</em>}
+                </div>
+                <button onClick={() => setActive('journal')}>Reflect on pattern</button>
+              </div>
+            </div>
+
+            <div className="grid two">
+              <div className="card featureCard">
+                <h3>Guided reflection</h3>
+                <p>{journalPrompts[0]}</p>
+                <button onClick={() => { setJournalText(`${journalPrompts[0]}\n\n`); setActive('journal'); }}>Start writing</button>
+              </div>
+              <div className="card featureCard">
+                <h3>Suggested circle</h3>
+                <p>2 AM Thoughts — a soft space for late-night emotions.</p>
+                <button onClick={() => { setSelectedRoom(rooms[0]); setActive('rooms'); }}>Join circle</button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'profile' && (
+          <section className="page">
+            <p className="eyebrow">Soft profile</p>
+            <h2>Your Quiet Circle profile</h2>
+            <div className="grid two">
+              <div className="card">
+                <h3>Personalize the space</h3>
+                <label>Display name
+                  <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
+                </label>
+                <label>Age range
+                  <select value={profile.age} onChange={e => setProfile({ ...profile, age: e.target.value })}>
+                    <option>13-17</option>
+                    <option>18-24</option>
+                    <option>25-34</option>
+                    <option>35+</option>
+                  </select>
+                </label>
+                <label>Support style
+                  <select value={profile.intent} onChange={e => setProfile({ ...profile, intent: e.target.value })}>
+                    <option value="listen">Just listen</option>
+                    <option value="advice">Gentle advice</option>
+                    <option value="prayer">Prayer</option>
+                    <option value="both">Advice + prayer</option>
+                  </select>
+                </label>
+                <label>Companion tone
+                  <select value={profile.persona} onChange={e => setProfile({ ...profile, persona: e.target.value })}>
+                    <option value="supportive_friend">Supportive friend</option>
+                    <option value="future_self">Future healed self</option>
+                    <option value="faith_anchor">Faith anchor</option>
+                    <option value="calm_coach">Calm coach</option>
+                  </select>
+                </label>
+                <button onClick={() => saveProfile(profile)}>Save profile</button>
+              </div>
+
+              <div className="card">
+                <h3>Your current vibe</h3>
+                <p className="weatherText">{moodLabel(Number(latestMood))}</p>
+                <p className="muted">No follower count. No popularity score. Just a quiet identity for healing.</p>
+                <div className="profilePreview">
+                  <span>{profile.name || 'Anonymous'}</span>
+                  <small>{profile.age} · {profile.intent}</small>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'mood' && (
+          <section className="page">
+            <p className="eyebrow">30-second check-in</p>
+            <h2>How is your heart today?</h2>
+            <div className="grid two">
+              <div className="card">
+                <label>Mood score: {moodScore}/10
+                  <input type="range" min="1" max="10" value={moodScore} onChange={e => setMoodScore(e.target.value)} />
+                </label>
+                <div className="moodWords"><span>Stormy</span><span>Steady</span><span>Peaceful</span></div>
+                <label>One honest sentence
+                  <textarea value={moodNote} onChange={e => setMoodNote(e.target.value)} placeholder="Today I feel..." />
+                </label>
+                <button onClick={addMood}>Save check-in</button>
+              </div>
+              <div className="card">
+                <h3>Recent emotional weather</h3>
+                <div className="list">
+                  {moods.length ? moods.slice(0, 6).map((item, index) => (
+                    <div className="listItem" key={`${item.at}-${index}`}>
+                      <strong>{item.score}/10 · {moodLabel(item.score)}</strong>
+                      <p>{item.note}</p>
+                      <small>{item.at}</small>
+                    </div>
+                  )) : <p className="muted">Your first check-in will appear here.</p>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'journal' && (
+          <section className="page">
+            <p className="eyebrow">AI journal that talks back</p>
+            <h2>Write what you cannot say out loud.</h2>
+            <div className="grid two">
+              <div className="card">
+                <div className="promptGrid">
+                  {journalPrompts.map(prompt => (
+                    <button className="promptBtn" key={prompt} onClick={() => setJournalText(`${prompt}\n\n`)}>
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+                <textarea className="largeText" value={journalText} onChange={e => setJournalText(e.target.value)} placeholder="Start with one honest line..." />
+                <button onClick={saveJournal}>Save journal</button>
+              </div>
+              <div className="card">
+                <h3>Gentle reflection</h3>
+                <p>{journalText.trim() ? 'You may be carrying something that needs language, not judgment. After saving, notice the feeling, the need, and one small next step.' : 'Start writing and this space will help you reflect without pressure.'}</p>
+                <div className="list">
+                  {journals.slice(0, 4).map((item, index) => (
+                    <div className="listItem" key={`${item.at}-${index}`}>
+                      <small>{item.at} · mood {item.mood}/10</small>
+                      <p>{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'companion' && (
+          <section className="page">
+            <p className="eyebrow">Transparent AI companion</p>
+            <h2>Talk to Quiet Circle AI.</h2>
+            <div className="grid two">
+              <div className="card">
+                <h3>Choose the mode you need</h3>
+                <div className="modeGrid">
+                  {companionModes.map(mode => (
+                    <button key={mode.id} className={companionMode.id === mode.id ? 'promptBtn activeMode' : 'promptBtn'} onClick={() => setCompanionMode(mode)}>
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted">{companionMode.prompt}</p>
+              </div>
+
+              <div className="card wide">
+                <h3>Quiet Circle AI companion</h3>
+                <p className="muted">Clearly labeled AI support. It can comfort, reflect, pray, and help rewrite emotional messages — it is not a human or emergency service.</p>
+                <div className="chatWindow companionChat">
+                  {messages.map((m, i) => (
+                    <div className={m.from === 'You' ? 'msg user' : 'msg bot'} key={`${m.from}-${i}`}>
+                      <strong>{m.from}</strong>
+                      <p>{m.text}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="composer">
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Tell the companion what feels heavy..." onKeyDown={e => e.key === 'Enter' && sendCompanionMessage()} />
+                  <button onClick={sendCompanionMessage}>Send</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'rooms' && (
+          <section className="page">
+            <p className="eyebrow">Anonymous support circles</p>
+            <h2>Support Circles</h2>
+            <div className="grid two">
+              {rooms.map(r => <RoomCard key={r.id} room={r} selected={selectedRoom.id === r.id} onSelect={setSelectedRoom} />)}
+            </div>
+            <div className="card wide circleChatCard">
+              <h3>{selectedRoom.icon} {selectedRoom.name}</h3>
+              <p className="muted">{selectedRoom.aiName} is clearly labeled as an AI circle guide. Real member counts are hidden until live presence is connected.</p>
+              <div className="chatWindow">
+                {roomMessages.map((m, i) => {
+                  const isAi = m.type === 'ai' || rooms.some(room => m.user?.startsWith(room.aiName));
+                  return (
+                    <div className={m.user === profile.name ? 'msg user' : 'msg bot'} key={`${m.user}-${i}`}>
+                      <strong>{isAi && !m.user.includes('AI') ? `${m.user} · AI guide` : m.user}</strong>
+                      <p>{m.text}</p>
+                      <MessageActions message={m} isAi={isAi} onReport={(text) => reportContent('message', text)} />
+                    </div>
+                  );
+                })}
+                {aiTyping && <div className="typingBubble">{selectedRoom.aiName} · AI guide is preparing a gentle reply…</div>}
+              </div>
+              <div className="composer">
+                <input value={roomInput} onChange={e => setRoomInput(e.target.value)} placeholder={`Message ${selectedRoom.name}...`} onKeyDown={e => e.key === 'Enter' && sendRoomMessage()} />
+                <button onClick={sendRoomMessage}>Send</button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'crisis' && (
+          <section className="page">
+            <p className="eyebrow">Safety first</p>
+            <h2>You deserve immediate support when things feel unsafe.</h2>
+            <div className="danger">
+              <h3>If you may hurt yourself or someone else, contact emergency help now.</h3>
+              <p>Quiet Circle is not a replacement for emergency care. These resources are here for urgent moments.</p>
+            </div>
+            <div className="grid two">
+              {crisisResources.map(resource => (
+                <div className="card" key={resource.name}>
+                  <h3>{resource.name}</h3>
+                  <p>{resource.desc}</p>
+                  <strong>{resource.phone}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {active === 'admin' && isAdmin && (
+          <section className="page">
+            <p className="eyebrow">Admin only</p>
+            <h2>Moderation dashboard</h2>
+            <div className="card">
+              <h3>Pending reports</h3>
+              <div className="list">
+                {reports.length ? reports.map((item, index) => (
+                  <div className="listItem" key={`${item.at}-${index}`}>
+                    <strong>{item.type} · {item.status}</strong>
+                    <p>{item.text}</p>
+                    <small>{item.at}</small>
+                  </div>
+                )) : <p className="muted">No pending reports.</p>}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {active === 'admin' && !isAdmin && (
+          <section className="page">
+            <div className="card">
+              <h2>This area is private.</h2>
+              <p className="muted">Admin tools are hidden for regular users.</p>
+            </div>
+          </section>
+        )}
+
+        <footer>
+          <label>Beta feedback
+            <textarea value={feedback} onChange={e => setFeedback(e.target.value)} placeholder="What would make Quiet Circle feel safer or more useful?" />
+          </label>
+          <button className="secondaryBtn" onClick={submitFeedback}>Send feedback</button>
+        </footer>
       </main>
     </div>
   );
