@@ -8,38 +8,78 @@ export default function LandingPage({ profile, email, setEmail, authNotice, save
         </div>
 
         <p className="eyebrow">Welcome to Quiet Circle</p>
-        <h1>A softer place to speak honestly.</h1>
-        <p>Join anonymously, check in with yourself, and enter gentle support circles when life feels too loud.</p>
+        <h1>Your safe anonymous space.</h1>
+        <p>
+          Login securely, protect your privacy, and join supportive circles without revealing your real identity.
+        </p>
 
         <div className="authPanel">
-          <label>
-            Age range
-            <select value={profile.age} onChange={e => saveProfile({ ...profile, age: e.target.value })}>
-              <option>18-24</option>
-              <option>25-34</option>
-              <option>35-44</option>
-              <option>45+</option>
-            </select>
-          </label>
-
-          <label>
-            Email
-            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-          </label>
-
           <div className="anonPreview">
-            Your anonymous name: <strong>{profile.name}</strong>
-            <button className="linkBtn" onClick={() => saveProfile({ ...profile, name: makeAnonName() })}>Regenerate</button>
+            Anonymous identity:
+            <strong>{profile.name}</strong>
+            <button
+              className="linkBtn"
+              onClick={() => saveProfile({ ...profile, name: makeAnonName() })}
+            >
+              Regenerate
+            </button>
+          </div>
+
+          <label>
+            Email address
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value.trim())}
+              placeholder="you@example.com"
+            />
+          </label>
+
+          <div className="card" style={{ padding: '16px', marginBottom: 0 }}>
+            <h3 style={{ marginTop: 0 }}>Secure access</h3>
+            <p className="muted">
+              Quiet Circle now supports secure authentication and anonymous profile syncing through Supabase.
+            </p>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <button onClick={() => enterApp('google')}>
+                Continue with Google
+              </button>
+
+              <button
+                className="secondaryBtn wideBtn"
+                onClick={() => enterApp('email')}
+              >
+                Continue with Email Magic Link
+              </button>
+
+              <button
+                className="linkBtn wideBtn"
+                onClick={() => enterApp('guest')}
+              >
+                Continue as Guest
+              </button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: '16px', marginBottom: 0 }}>
+            <h3 style={{ marginTop: 0 }}>Privacy & Security</h3>
+            <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--muted)', lineHeight: 1.8 }}>
+              <li>Anonymous display names only</li>
+              <li>No public email exposure</li>
+              <li>Protected Supabase row-level security</li>
+              <li>Encrypted authentication sessions</li>
+              <li>Secure realtime circle messaging</li>
+            </ul>
           </div>
 
           {authNotice && <div className="authNotice">{authNotice}</div>}
-
-          <button onClick={() => enterApp('google')}>Continue with Google</button>
-          <button className="secondaryBtn wideBtn" onClick={() => enterApp('email')}>Sign up with email</button>
-          <button className="linkBtn wideBtn" onClick={() => enterApp('guest')}>Continue as beta guest</button>
         </div>
 
-        <small>Quiet Circle is not medical care. Support resources are available inside the app.</small>
+        <small>
+          Quiet Circle is a peer-support platform and not a replacement for professional medical care.
+        </small>
       </section>
     </main>
   );
