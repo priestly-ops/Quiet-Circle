@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getMoodAura, reactionOptions } from '../utils/safety';
 
 export function StreakCard({ streak = 0 }) {
@@ -23,10 +24,17 @@ export function AuraCard({ score = 6 }) {
 }
 
 export function ReactionBar() {
+  const [selected, setSelected] = useState(null);
+
   return (
-    <div className="reactionBar">
+    <div className="reactionBar" aria-label="Anonymous reactions">
       {reactionOptions.map(reaction => (
-        <button key={reaction.id} className="reactionBtn">
+        <button
+          key={reaction.id}
+          type="button"
+          className={selected === reaction.id ? 'reactionBtn activeReaction' : 'reactionBtn'}
+          onClick={() => setSelected(selected === reaction.id ? null : reaction.id)}
+        >
           <span>{reaction.emoji}</span>
           <small>{reaction.label}</small>
         </button>
