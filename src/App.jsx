@@ -6,6 +6,7 @@ import { ReactionBar } from './components/EngagementCards';
 import Sidebar from './components/Sidebar';
 import RoomCard from './components/RoomCard';
 import LandingPage from './pages/LandingPage';
+import { ReactionBar } from './components/EngagementCards';
 import {
   DashboardEngagement,
   MoodAuraPreview,
