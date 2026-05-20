@@ -39,8 +39,10 @@ export default function RoomsView({
     );
   }
 
+  const currentUserId = session?.user?.id || `local-${profile.name}`;
+
   return (
-    <section className="page">
+    <section className="page circlePage">
       <button className="secondaryBtn" onClick={backToRooms}>
         ← Back to circles
       </button>
@@ -58,22 +60,27 @@ export default function RoomsView({
           </div>
         </div>
 
-        <div className="chatWindow">
-          {roomMessages.map((message, index) => (
-            <div
-              key={message.id || index}
-              className={`msg ${message.senderId === (session?.user?.id || `local-${profile.name}`) ? 'user' : 'bot'}`}
-            >
-              <strong>{message.user}</strong>
-              <p>{message.text}</p>
+        <div className="chatWindow circleChatWindow">
+          {roomMessages.map((message, index) => {
+            const isOwnMessage = message.senderId === currentUserId;
 
-              <MessageActions
-                message={message}
-                onReport={(text) => reportContent('room_message', text)}
-                isBuddy={message.type === 'ai'}
-              />
-            </div>
-          ))}
+            return (
+              <div
+                key={message.id || index}
+                className={`msg ${isOwnMessage ? 'user' : 'bot'}`}
+              >
+                <strong>{message.user}</strong>
+                <p>{message.text}</p>
+
+                <MessageActions
+                  message={message}
+                  onReport={(text) => reportContent('room_message', text)}
+                  isBuddy={message.type === 'ai'}
+                  isOwnMessage={isOwnMessage}
+                />
+              </div>
+            );
+          })}
 
           {aiTyping && (
             <div className="typingBubble">
@@ -82,7 +89,7 @@ export default function RoomsView({
           )}
         </div>
 
-        <div className="composer">
+        <div className="composer circleComposer">
           <input
             value={roomInput}
             onChange={event => setRoomInput(event.target.value)}
