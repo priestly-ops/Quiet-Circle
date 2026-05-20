@@ -5,6 +5,11 @@ import { getSaved, humanReply, isCrisisText, makeAnonName, safetyReply } from '.
 import Sidebar from './components/Sidebar';
 import RoomCard from './components/RoomCard';
 import LandingPage from './pages/LandingPage';
+import {
+  DashboardEngagement,
+  MoodAuraPreview,
+  MessageReactions
+} from './components/VisibleEngagement';
 
 const navBase = [['dashboard','Home'],['profile','Profile'],['mood','Mood'],['journal','Journal'],['companion','Companion'],['rooms','Circles'],['crisis','Safety']];
 const companionModes = [
