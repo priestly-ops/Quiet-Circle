@@ -24,6 +24,9 @@ export default function DashboardPage({ averageMood, journalsCount, reportsCount
         <div className="stat"><span>{reportsCount}</span><p>Reports pending</p></div>
         <div className="stat"><span>{messagesCount}</span><p>Circle messages</p></div>
       </div>
+      <DashboardEngagement
+        streak={daysCheckedIn(moods)}
+        latestMood={latestMood}/>
 
       <div className="grid two">
         <div className="card featureCard">
