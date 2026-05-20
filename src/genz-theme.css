@@ -11,9 +11,11 @@
   --gold:#d946ef;
   --line:#e9d5ff;
   --shadow:0 20px 55px rgba(124,58,237,.12);
+  --aura-x:50%;
+  --aura-y:18%;
 }
 
-:root[data-theme="dark"]{
+:root[data-theme="dark"],:root[data-late-night="true"]{
   --bg:#0d0d1f;
   --paper:#141428;
   --ink:#f0ebff;
@@ -46,11 +48,45 @@
 }
 
 body{
-  background:linear-gradient(135deg,var(--bg) 0%,var(--mint) 55%,var(--cream) 100%);
+  background:radial-gradient(circle at var(--aura-x) var(--aura-y),rgba(236,72,153,.26),transparent 28%),radial-gradient(circle at 15% 85%,rgba(139,92,246,.18),transparent 32%),linear-gradient(135deg,var(--bg) 0%,var(--mint) 55%,var(--cream) 100%);
+  cursor:none;
+}
+
+body:before{
+  content:"";
+  position:fixed;
+  inset:-20%;
+  pointer-events:none;
+  background:radial-gradient(circle at 20% 20%,rgba(236,72,153,.16),transparent 24%),radial-gradient(circle at 80% 30%,rgba(139,92,246,.18),transparent 26%),radial-gradient(circle at 50% 85%,rgba(217,70,239,.12),transparent 28%);
+  filter:blur(18px);
+  animation:spotifyAura 14s ease-in-out infinite alternate;
+  z-index:-1;
+}
+
+.auraCursor{
+  position:fixed;
+  left:var(--aura-x);
+  top:var(--aura-y);
+  width:220px;
+  height:220px;
+  border-radius:999px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  background:radial-gradient(circle,rgba(236,72,153,.28),rgba(139,92,246,.14) 42%,transparent 70%);
+  filter:blur(14px);
+  mix-blend-mode:screen;
+  z-index:9999;
 }
 
 .landing{
   background:radial-gradient(circle at top,#fce7f3 0,var(--bg) 38%,var(--mint) 100%);
+}
+
+.landingCard,.card,.heroPanel,.stat,.noticeBanner,.sidebar,.miniCard,.safetyBox,.chatWindow,.listItem,.profilePreview{
+  background:color-mix(in srgb,var(--paper) 72%,transparent);
+  backdrop-filter:blur(22px) saturate(1.25);
+  -webkit-backdrop-filter:blur(22px) saturate(1.25);
+  border-color:color-mix(in srgb,var(--line) 78%,white 22%);
 }
 
 .landingCard:before{
@@ -76,10 +112,40 @@ body{
   background:rgba(217,70,239,.22);
 }
 
+.heroPanel,.landingCard{
+  isolation:isolate;
+}
+
+.heroPanel:before,.landingCard:after{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  pointer-events:none;
+  background:radial-gradient(circle at 25% 30%,rgba(236,72,153,.18),transparent 24%),radial-gradient(circle at 80% 55%,rgba(139,92,246,.22),transparent 26%);
+  filter:blur(20px);
+  z-index:-1;
+  animation:spotifyAura 12s ease-in-out infinite alternate;
+}
+
 .breathOrb{
   background:radial-gradient(circle at 30% 25%,#fce7f3 0%,transparent 35%),radial-gradient(circle at 70% 70%,#8b5cf6 0%,transparent 42%),linear-gradient(135deg,#7c3aed,#ec4899);
   color:#fff;
   box-shadow:0 0 55px rgba(217,70,239,.35);
+}
+
+.breathOrb span{
+  position:relative;
+  z-index:2;
+}
+
+.breathOrb:before{
+  content:"";
+  position:absolute;
+  width:72%;
+  height:72%;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.42);
+  animation:lottieBreath 4s ease-in-out infinite;
 }
 
 input:focus,textarea:focus,select:focus{
@@ -117,13 +183,59 @@ button:hover{
 
 .sparkline span{
   background:linear-gradient(180deg,#ec4899,#7c3aed);
+  transition:height .45s cubic-bezier(.22,1,.36,1),transform .25s ease;
+}
+
+.sparkline span:hover{
+  transform:scaleY(1.08);
 }
 
 .danger{
   border-color:#fbcfe8;
 }
 
+.onboardingCarousel{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:18px 0 6px;
+}
+
+.onboardingCard{
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:16px;
+  background:color-mix(in srgb,var(--paper) 70%,transparent);
+  backdrop-filter:blur(18px);
+  box-shadow:0 14px 30px rgba(124,58,237,.10);
+  animation:floatCard 5s ease-in-out infinite;
+}
+
+.onboardingCard:nth-child(2){animation-delay:.8s}.onboardingCard:nth-child(3){animation-delay:1.6s}
+.onboardingCard strong{display:block;color:var(--sage-dark);margin-bottom:6px}
+.onboardingCard p{margin:0;color:var(--muted);font-size:.92rem;line-height:1.5}
+
+.moodMotion{
+  animation:moodPop .45s cubic-bezier(.22,1,.36,1);
+}
+
+:root[data-late-night="true"] .heroPanel h2:after{
+  content:"  ✦ late night mode";
+  display:block;
+  margin-top:12px;
+  font-size:.9rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#e879f9;
+}
+
 @keyframes breathe{
   0%,100%{transform:scale(.94);box-shadow:0 0 0 0 rgba(236,72,153,.16)}
   50%{transform:scale(1.08);box-shadow:0 0 0 28px rgba(139,92,246,.12)}
 }
+@keyframes lottieBreath{0%,100%{transform:scale(.7);opacity:.35}50%{transform:scale(1.18);opacity:.88}}
+@keyframes spotifyAura{0%{transform:translate3d(-2%,0,0) rotate(0deg)}100%{transform:translate3d(2%,2%,0) rotate(8deg)}}
+@keyframes floatCard{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes moodPop{0%{transform:scale(.96);opacity:.55}100%{transform:scale(1);opacity:1}}
+
+@media(max-width:900px){.onboardingCarousel{grid-template-columns:1fr}.auraCursor{display:none}body{cursor:auto}}
