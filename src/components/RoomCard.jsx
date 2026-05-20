@@ -1,8 +1,10 @@
-export default function RoomCard({ room, selected, onSelect }) {
+export default function RoomCard({ room, selected, onSelect, onOpen }) {
+  const handleOpen = onSelect || onOpen;
+
   return (
     <button
       className={selected ? 'card roomCard selectedRoom' : 'card roomCard'}
-      onClick={() => onSelect(room)}
+      onClick={() => handleOpen?.(room)}
     >
       <div className="roomIcon">{room.icon}</div>
 
