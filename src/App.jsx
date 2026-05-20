@@ -45,7 +45,17 @@ function daysCheckedIn(moods){ return new Set(moods.map(item => String(item.at).
 function moodLabel(score){ if(score>=8)return 'peaceful sunrise'; if(score>=6)return 'cloudy but steady'; if(score>=4)return 'heavy fog'; return 'stormy thoughts'; }
 function humanTypingDelay(text=''){ return Math.min(5200, Math.max(1800, 900 + text.length * 28)); }
 function sourceLabel(source){ return showSourceLabels&&source ? ` · ${source}` : ''; }
-function formatRoomMessage(row){return {id:row.id,user:row.display_name||'Anonymous',senderId:row.user_id||null,text:row.message||'',type:row.message_type||'human',source:row.source||'',created_at[...]
+function formatRoomMessage(row) {
+  return {
+    id: row.id,
+    user: row.display_name || 'Anonymous',
+    senderId: row.user_id || null,
+    text: row.message || '',
+    type: row.message_type || 'human',
+    source: row.source || '',
+    created_at: row.created_at
+  };
+}
 function uniqueById(messages){const seen=new Set();return messages.filter((item)=>{const key=item.id||`${item.senderId||item.user}:${item.text}:${item.created_at||''}`;if(seen.has(key))return fals[...]
 function uniqueMembers(members){const seen=new Set();return members.filter(member=>{const key=member.userId||member.name;if(seen.has(key))return false;seen.add(key);return true;});}
 function normalizeProfile(savedProfile){return {...savedProfile,name:savedProfile?.name||makeAnonName(),age:lockedAgeRange};}
