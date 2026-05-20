@@ -8,8 +8,7 @@ import RoomCard from './components/RoomCard';
 import LandingPage from './pages/LandingPage';
 import {
   DashboardEngagement,
-  MoodAuraPreview,
-  MessageReactions
+  MoodAuraPreview
 } from './components/VisibleEngagement';
 
 const navBase = [['dashboard','Home'],['profile','Profile'],['mood','Mood'],['journal','Journal'],['companion','Companion'],['rooms','Circles'],['crisis','Safety']];
@@ -169,9 +168,9 @@ export default function App(){
 
   return <div className="appShell"><Sidebar profile={profile} session={session} nav={nav} active={active} setActive={changeActive} cloudStatus={cloudStatus} signOut={signOut} theme={theme} setThe[...]
     {showLocalNotice&&<div className="noticeBanner"><strong>Your entries are private to this device right now.</strong><span>Sign in later to sync across devices. Clearing this browser can remove[...]
-    {active==='dashboard'&&<section className="page"><div className="heroPanel"><div><p className="eyebrow">Anonymous Indian emotional reset space</p><h2>You do not have to carry everything alone[...stats grid closing...]</div></div><DashboardEngagement streak={daysCheckedIn(moods)} latestMood={latestMood} /></section>}
+    {active==='dashboard'&&<section className="page"><div className="heroPanel"><div><p className="eyebrow">Anonymous Indian emotional reset space</p><h2>You do not have to carry everything alone[...]</div></div><DashboardEngagement streak={daysCheckedIn(moods)} latestMood={latestMood} /><div className="grid two">[...]</div></section>}
     {active==='profile'&&<section className="page"><p className="eyebrow">Anonymous profile</p><h2>Your Quiet Circle identity</h2><div className="grid two"><div className="card"><h3>Locked for sa[...]
-    {active==='mood'&&<section className="page"><p className="eyebrow">30-second check-in</p><h2>How is your heart today?</h2><div className="grid two"><div className="card"><label>Mood score: {m[...]</div><MoodAuraPreview moodScore={moodScore} /><div className="card"><p className="eyebrow">Recent emotional weather</p>[...]</div></div></section>}
+    {active==='mood'&&<section className="page"><p className="eyebrow">30-second check-in</p><h2>How is your heart today?</h2><div className="grid two"><div className="card"><label>Mood score: {m[...]</div><MoodAuraPreview moodScore={moodScore} /><div className="card"><h3>Recent emotional weather</h3>[...]</div></div></section>}
     {active==='journal'&&<section className="page"><p className="eyebrow">Private journal</p><h2>Write what you cannot say out loud.</h2><div className="grid two"><div className="card"><div class[...]
     {active==='companion'&&<section className="page"><p className="eyebrow">Private companion</p><h2>Talk to Quiet Circle.</h2><div className="grid two"><div className="card"><h3>Choose the mode [...]
     {active==='rooms'&&<section className="page circlesPage">{!roomOpen?<><p className="eyebrow">Choose your circle</p><h2>What are you carrying today?</h2><p className="muted pageIntro">Pick a r[...]
