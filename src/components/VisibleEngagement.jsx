@@ -1,4 +1,4 @@
-import { AuraCard, BuddyMatchingCard, ReactionBar, StreakCard } from './EngagementCards';
+import { AuraCard, BuddyMatchingCard, StreakCard } from './EngagementCards';
 
 export function DashboardEngagement({ streak, latestMood }) {
   return (
@@ -12,8 +12,4 @@ export function DashboardEngagement({ streak, latestMood }) {
 
 export function MoodAuraPreview({ moodScore }) {
   return <AuraCard score={Number(moodScore)} />;
-}
-
-export function MessageReactions() {
-  return <ReactionBar />;
 }
