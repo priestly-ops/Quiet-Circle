@@ -51,12 +51,38 @@ function uniqueById(messages){const seen=new Set();return messages.filter((item)
 function uniqueMembers(members){const seen=new Set();return members.filter(member=>{const key=member.userId||member.name;if(seen.has(key))return false;seen.add(key);return true;});}
 function normalizeProfile(savedProfile){return {...savedProfile,name:savedProfile?.name||makeAnonName(),age:lockedAgeRange};}
 
-function MessageActions({ message, onReport, isBuddy }){
-  const [open,setOpen]=useState(false);
-  if(isBuddy)return null;
-  return <div className="messageActions"><button className="iconBtn" aria-label="Message options" onClick={()=>setOpen(!open)}>⋯</button>{open&&<div className="messageMenu"><button onClick={()=>{onReport(message.text);setOpen(false);}}>Report message</button></div>}</div>;
-}
+function MessageActions({ message, onReport, isBuddy }) {
+  const [open, setOpen] = useState(false);
 
+  if (isBuddy) return null;
+
+  return (
+    <div className="messageActions">
+      <ReactionBar />
+
+      <button
+        className="iconBtn"
+        aria-label="Message options"
+        onClick={() => setOpen(!open)}
+      >
+        ⋯
+      </button>
+
+      {open && (
+        <div className="messageMenu">
+          <button
+            onClick={() => {
+              onReport(message.text);
+              setOpen(false);
+            }}
+          >
+            Report message
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 export default function App(){
   const [session,setSession]=useState(null);
   const [entered,setEntered]=useState(()=>getSaved('qc_entered',false));
