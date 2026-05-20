@@ -56,8 +56,34 @@ function formatRoomMessage(row) {
     created_at: row.created_at
   };
 }
-function uniqueById(messages){const seen=new Set();return messages.filter((item)=>{const key=item.id||`${item.senderId||item.user}:${item.text}:${item.created_at||''}`;if(seen.has(key))return fals[...]
-function uniqueMembers(members){const seen=new Set();return members.filter(member=>{const key=member.userId||member.name;if(seen.has(key))return false;seen.add(key);return true;});}
+
+function uniqueById(messages) {
+  const seen = new Set();
+
+  return messages.filter((item) => {
+    const key =
+      item.id ||
+      `${item.senderId || item.user}:${item.text}:${item.created_at || ''}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueMembers(members) {
+  const seen = new Set();
+
+  return members.filter((member) => {
+    const key = member.userId || member.name;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
 function normalizeProfile(savedProfile){return {...savedProfile,name:savedProfile?.name||makeAnonName(),age:lockedAgeRange};}
 
 function MessageActions({ message, onReport, isBuddy }) {
