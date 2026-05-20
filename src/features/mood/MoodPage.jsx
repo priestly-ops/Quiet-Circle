@@ -36,7 +36,7 @@ export default function MoodPage({ moodScore, setMoodScore, moodNote, setMoodNot
 
           <button onClick={addMood}>Save check-in</button>
         </div>
-
+        <MoodAuraPreview moodScore={moodScore} />
         <AuraCard score={Number(moodScore)} />
 
         <div className="card">
