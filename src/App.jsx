@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { DEMO_PROFILE_ID, crisisResources, defaultRoomMessages, journalPrompts, rooms, starterMessages } from './data/appData';
 import { getSaved, humanReply, isCrisisText, makeAnonName, safetyReply } from './utils/helpers';
-import { classifySafety } from './utils/moderation';
 import { ReactionBar } from './components/EngagementCards';
 import { shouldAiReplyInCircle } from './utils/circleAiPolicy';
 import Sidebar from './components/Sidebar';
@@ -60,18 +59,20 @@ function uniqueMembers(members) {
 }
 function normalizeProfile(savedProfile) { return { ...savedProfile, name: savedProfile?.name || makeAnonName(), age: lockedAgeRange }; }
 
-function MessageActions({ message, onReport, isBuddy }) {
+function MessageActions({ message, onReport, isBuddy, isOwnMessage }) {
   const [open, setOpen] = useState(false);
   if (isBuddy) return null;
   return (
     <div className="messageActions">
-      <ReactionBar />
-      <button className="iconBtn" aria-label="Message options" onClick={() => setOpen(!open)}>⋯</button>
-      {open && (
-        <div className="messageMenu">
-          <button onClick={() => { onReport(message.text); setOpen(false); }}>Report message</button>
-        </div>
-      )}
+      {!isOwnMessage && <ReactionBar />}
+      <div className="messageMenuWrap">
+        <button className="iconBtn" aria-label="Message options" onClick={() => setOpen(!open)}>⋯</button>
+        {open && (
+          <div className="messageMenu">
+            <button onClick={() => { onReport(message.text); setOpen(false); }}>Report message</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -175,11 +176,13 @@ export default function App() {
     if (hasPersonalInfo(userText)) { alert(privacyReply()); setRoomInput(''); return; }
     const senderName = profile.name || 'Anonymous'; const senderId = session?.user?.id || `local-${senderName}`;
     const userMsg = { id: `local-${Date.now()}`, user: senderName, senderId, text: userText, type: 'human', source: '', created_at: new Date().toISOString() };
-    setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), userMsg]) })); setRoomInput('');
-    if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: senderName, message: userText, message_type: 'human' }); else localStorage.setItem('qc_room_messages_by_id', JSON.stringify({ ...roomMessagesById, [currentRoom.id]: uniqueById([...(roomMessagesById[currentRoom.id] || []), userMsg]) }));
+    const nextRoomMessages = uniqueById([...(roomMessagesById[currentRoom.id] || []), userMsg]);
+    const nextRoomMessagesById = { ...roomMessagesById, [currentRoom.id]: nextRoomMessages };
+    setRoomMessagesById(nextRoomMessagesById); setRoomInput('');
+    if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: senderName, message: userText, message_type: 'human' }); else localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextRoomMessagesById));
     if (!shouldAiReplyInCircle({ text: userText, hasOtherPeople })) return;
     setAiTyping(true); await new Promise(r => setTimeout(r, humanTypingDelay(userText)));
-    try { const { text: agentText, source } = await getAgentReply(userText); const agentMsg = { id: `agent-${Date.now()}`, user: 'Quiet Circle', senderId: 'agent', text: agentText + sourceLabel(source), type: 'ai', source, created_at: new Date().toISOString() }; setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), agentMsg]) })); if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: 'Quiet Circle', message: agentText, message_type: 'ai', source }); } finally { setAiTyping(false); }
+    try { const { text: agentText, source } = await getAgentReply(userText, currentRoom, nextRoomMessages); const agentMsg = { id: `agent-${Date.now()}`, user: 'Quiet Circle', senderId: 'agent', text: agentText + sourceLabel(source), type: 'ai', source, created_at: new Date().toISOString() }; setRoomMessagesById(prev => { const updated = { ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), agentMsg]) }; if (!isSupabaseConfigured) localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated)); return updated; }); if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: 'Quiet Circle', message: agentText, message_type: 'ai', source }); } finally { setAiTyping(false); }
   }
   async function reportContent(type, text) { const report = { type, text, status: 'pending', at: new Date().toLocaleString() }; const next = [report, ...reports]; setReports(next); localStorage.setItem('qc_reports', JSON.stringify(next)); if (isSupabaseConfigured && session?.user?.id) await supabase.from('moderation_reports').insert({ user_id: session.user.id, report_type: type, content: text }); alert('Thank you — this message has been flagged for review.'); }
 
