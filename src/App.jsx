@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { DEMO_PROFILE_ID, crisisResources, defaultRoomMessages, journalPrompts, rooms, starterMessages } from './data/appData';
 import { getSaved, humanReply, isCrisisText, makeAnonName, safetyReply } from './utils/helpers';
+import { ReactionBar } from './components/EngagementCards';
 import Sidebar from './components/Sidebar';
 import RoomCard from './components/RoomCard';
 import LandingPage from './pages/LandingPage';
