@@ -1,5 +1,5 @@
-const adjectives = ['Quiet', 'Gentle', 'Moon', 'Calm', 'Soft', 'Brave', 'Warm', 'Hidden', 'Kind', 'Silver'];
-const nouns = ['Willow', 'Leaf', 'Star', 'River', 'Cloud', 'Lantern', 'Anchor', 'Finch', 'Meadow', 'Stone'];
+const adjectives = ['Chill', 'Soft', 'Kind', 'Calm', 'Bright', 'Brave', 'Moon', 'Warm', 'Quiet', 'Desi'];
+const indianNames = ['Aarav', 'Vivaan', 'Aditya', 'Arjun', 'Krishna', 'Rohan', 'Kabir', 'Ishaan', 'Anaya', 'Diya', 'Meera', 'Kavya', 'Aadhya', 'Saanvi', 'Nisha', 'Priya', 'Rahul', 'Sneha', 'Kiran', 'Asha'];
 
 export const crisisWords = [
   'suicide',
@@ -12,7 +12,21 @@ export const crisisWords = [
   'can’t go on',
   "can't go on",
   'no reason to live',
-  'ending it'
+  'ending it',
+  'mar jaunga',
+  'mar jaungi',
+  'jaan de dunga',
+  'jaan de dungi',
+  'jeena nahi',
+  'jeena nahin'
+];
+
+const personalInfoPatterns = [
+  /\b\d{10}\b/,
+  /\b(?:\+91[\s-]?)?[6-9]\d{9}\b/,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  /\b(?:whatsapp|phone|mobile|number|email|gmail|address|location|live in|i am from|insta|instagram|snapchat|telegram)\b/i,
+  /\b(?:flat|apartment|house no|street|colony|hostel|pg|pincode|pin code)\b/i
 ];
 
 export function getSaved(key, fallback) {
@@ -25,7 +39,7 @@ export function getSaved(key, fallback) {
 }
 
 export function makeAnonName() {
-  return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
+  return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${indianNames[Math.floor(Math.random() * indianNames.length)]}`;
 }
 
 export function isCrisisText(text) {
@@ -33,8 +47,16 @@ export function isCrisisText(text) {
   return [...new Set(crisisWords.map(word => word.toLowerCase().replace(/[’‘]/g, "'")))].some(word => clean.includes(word));
 }
 
+export function hasPersonalInfo(text = '') {
+  return personalInfoPatterns.some(pattern => pattern.test(text));
+}
+
+export function privacyReply() {
+  return 'Small privacy check, yaar — please don’t share real name, phone number, email, exact location, Instagram, hostel/PG, or address here. Quiet Circle is anonymous, so keep it general and safe.';
+}
+
 export function safetyReply() {
-  return 'I’m really sorry you’re feeling this much pain. I can’t be your only support right now. If you might hurt yourself or are in danger, please call 911 or 988 now, or text HOME to 741741. If you can, move near another person and tell them you need help staying safe.';
+  return 'I’m really sorry you’re feeling this much pain. Quiet Circle is anonymous and not an emergency service. If you might hurt yourself or are in immediate danger in India, call 112 now, contact KIRAN at 1800-599-0019, or reach out to a trusted person near you right now. Please don’t stay alone with this feeling.';
 }
 
 function pick(options) {
@@ -43,10 +65,11 @@ function pick(options) {
 
 function isGreeting(text) {
   const clean = text.toLowerCase().trim().replace(/[!?.\s]+$/g, '');
-  return ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo', 'sup', 'good morning', 'good afternoon', 'good evening'].includes(clean);
+  return ['hi', 'hello', 'hey', 'hii', 'heyy', 'yo', 'sup', 'namaste', 'bro', 'yaar', 'good morning', 'good afternoon', 'good evening'].includes(clean);
 }
 
 export function humanReply(text, room = {}) {
+  if (hasPersonalInfo(text)) return privacyReply();
   if (isCrisisText(text)) return safetyReply();
 
   const lower = text.toLowerCase();
@@ -55,90 +78,90 @@ export function humanReply(text, room = {}) {
 
   if (isGreeting(text)) {
     return pick([
-      `Hey, welcome to ${roomName}. I’m glad you came in. How are you feeling right now?`,
-      `Hi, I’m here with you. No pressure to explain everything — what brought you into ${roomName} today?`,
-      `Hey hey. You’re safe to start small here. What’s been on your mind?`,
-      `Hi friend. I’m listening. Do you want to talk, vent, or just sit for a minute?`
+      `Heyy, welcome to ${roomName}. Kya scene hai today?`,
+      `Hii, I’m here. No pressure, just say what’s on your mind yaar.`,
+      `Yo, you’re safe here. Vent karna hai ya chill talk?`,
+      `Hey bro, I’m listening. What’s been feeling heavy?`
     ]);
   }
 
   if (roomId === 'family' || lower.includes('family') || lower.includes('parents') || lower.includes('mom') || lower.includes('dad')) {
     return pick([
-      'Oof, family stuff hurts differently because you still care. What did they say that stayed in your head?',
+      'Family pressure hits different, yaar. What exactly happened?',
       'That sounds heavy. Are you more angry, guilty, or just tired right now?',
-      'I get why that would mess with your peace. Do you want to vent first, or do you want help figuring out what to say back?'
+      'I get you. Indian family expectations can feel nonstop. Want to vent first?'
     ]);
   }
 
   if (roomId === 'breakup' || lower.includes('breakup') || lower.includes('ex') || lower.includes('miss him') || lower.includes('miss her')) {
     return pick([
-      'Yeah… missing someone can hit like a wave out of nowhere. Did something trigger it today?',
-      'I won’t tell you to “just move on.” That never helps. What part do you miss — them, the routine, or who you were with them?',
-      'Be honest with me: are you wanting closure, a reply, or just relief from the feeling?'
+      'Oof, that pain is real. Did something trigger the missing-them feeling today?',
+      'No fake “move on” gyaan from me. What part hurts most right now?',
+      'Be honest bro — do you want closure, a reply, or just peace from the feeling?'
     ]);
   }
 
   if (roomId === 'career' || lower.includes('job') || lower.includes('career') || lower.includes('interview') || lower.includes('rejection')) {
     return pick([
-      'That job pressure can make everything feel personal. But rejection is not your identity. What happened today?',
-      'I hear you. Are you feeling stuck because of money, time, interviews, or comparing yourself to others?',
-      'You’re not lazy — you sound drained. What is the one career thing stressing you the most right now?'
+      'Job pressure can mess with your head badly. But rejection is not your identity, okay?',
+      'I hear you. Is it money stress, interviews, visa pressure, or comparing yourself with others?',
+      'You’re not lazy, you sound drained. What’s the biggest career tension right now?'
     ]);
   }
 
   if (roomId === 'anxiety' || lower.includes('anxious') || lower.includes('panic') || lower.includes('overthink') || lower.includes('scared')) {
     return pick([
-      'Okay, stay with me for a second. Is this a real problem in front of you, or a scary “what if” loop?',
-      'That spiral is loud, I know. Name one thing you can see near you right now. Let’s slow your brain down a little.',
-      'You don’t have to solve the whole thing tonight. What is the exact thought that keeps repeating?'
+      'Okay, breathe with me for a sec. Is this a real problem right now, or a scary what-if loop?',
+      'That spiral is loud, I know. Name one thing near you. Let’s slow this down.',
+      'You don’t have to solve everything tonight. What thought keeps repeating?'
     ]);
   }
 
   if (roomId === 'faith' || lower.includes('god') || lower.includes('pray') || lower.includes('faith')) {
     return pick([
-      'You can be honest with God here. Even “I’m tired” counts as a prayer. What do you wish He would answer right now?',
-      'Faith can feel quiet sometimes. That doesn’t mean you’re abandoned. What are you carrying today?',
-      'I’m with you. Want to say the messy version first, then we can turn it into a simple prayer?'
+      'You can be honest with God here. Even “I’m tired” is a prayer, yaar.',
+      'Faith can feel quiet sometimes. That doesn’t mean you’re abandoned. What are you carrying?',
+      'Say the messy version first. We can turn it into a simple prayer after.'
     ]);
   }
 
   if (roomId === 'friendship' || lower.includes('friend') || lower.includes('left out') || lower.includes('ghosted')) {
     return pick([
-      'Being left out by friends is such a specific kind of hurt. Did they ignore you, replace you, or make you feel small?',
-      'That would bother me too. Do you want to understand it, confront it, or just stop caring so much?',
-      'You’re not dramatic for feeling hurt. What happened?'
+      'Being left out by friends hurts badly. Did they ignore you, replace you, or make you feel small?',
+      'That would bother me too. Do you want to understand it, confront it, or just detach?',
+      'You’re not dramatic for feeling hurt. Batao, what happened?'
     ]);
   }
 
   if (lower.includes('alone') || lower.includes('lonely')) {
     return pick([
-      'I’m here with you. Not in a fake motivational way — genuinely, you don’t have to hold this sentence alone. What made tonight feel lonely?',
-      'Loneliness gets so loud when everything is quiet. Do you want distraction, comfort, or to talk through it?',
-      'That sounds really isolating. When did it start feeling this heavy today?'
+      'I’m here with you, yaar. What made tonight feel this lonely?',
+      'Loneliness gets loud when everything is quiet. Want comfort, distraction, or to talk it out?',
+      'That sounds isolating. When did it start feeling heavy today?'
     ]);
   }
 
   if (lower.includes('stress') || lower.includes('exam') || lower.includes('work')) {
     return pick([
-      'That sounds like too many tabs open in your brain. What’s the one tab that keeps flashing red?',
-      'I get it. Let’s not fix everything. What is the next tiny thing you need to survive the next hour?',
-      'You sound overloaded, not weak. What’s taking the most energy right now?'
+      'Your brain sounds like too many tabs open. Which tab is flashing red right now?',
+      'Let’s not fix everything. What’s the next tiny thing you need to survive the next hour?',
+      'You sound overloaded, not weak. What’s taking the most energy?'
     ]);
   }
 
   if (lower.includes('sad') || lower.includes('cry') || lower.includes('hurt')) {
     return pick([
-      'I’m sorry. That sounds really tender. Do you want to tell me the real reason, even if it sounds messy?',
-      'I’m here. No pressure to make it sound okay. What part hurts the most?',
-      'That kind of sadness can sit in your chest. Did something happen, or did it just build up?'
+      'I’m sorry yaar. That sounds tender. What part hurts the most?',
+      'No need to make it sound okay. Say it messy, I’m listening.',
+      'That sadness can sit in the chest. Did something happen, or did it build up?'
     ]);
   }
 
   return pick([
-    'I’m listening. Say more — what’s the part you haven’t told anyone yet?',
-    'That makes sense. I don’t want to give you a fake quote. What do you actually need right now — comfort, honesty, or distraction?',
+    'I’m listening. Say more — what’s the part you haven’t told anyone?',
+    'I get you. Do you need comfort, honesty, or distraction right now?',
     'I’m with you. Keep going, even if it comes out messy.',
-    'Yeah, I hear you. What happened right before you started feeling this way?',
-    'That’s a lot to carry alone. Want to unpack the first piece together?'
+    'Yeah, I hear you. What happened right before this feeling started?',
+    'That’s a lot to carry alone, bro. Let’s unpack one piece at a time.'
   ]);
 }
