@@ -12,9 +12,9 @@ export const rooms = [
 ];
 
 export const crisisResources = [
-  { name: 'Emergency Services', phone: '911', desc: 'Call immediately if you or someone else is in danger.' },
-  { name: '988 Suicide & Crisis Lifeline', phone: '988', desc: '24/7 confidential support in the United States.' },
-  { name: 'Crisis Text Line', phone: 'Text HOME to 741741', desc: 'Free crisis support by text.' }
+  { name: 'Emergency Services', phone: '911', detail: 'Call immediately if you or someone else is in danger.' },
+  { name: '988 Suicide & Crisis Lifeline', phone: '988', detail: '24/7 confidential crisis support in the United States.' },
+  { name: 'Crisis Text Line', phone: 'Text HOME to 741741', detail: 'Free crisis support by text message.' }
 ];
 
 export const journalPrompts = [
