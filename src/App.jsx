@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { DEMO_PROFILE_ID, crisisResources, defaultRoomMessages, journalPrompts, rooms, starterMessages } from './data/appData';
 import { getSaved, humanReply, isCrisisText, makeAnonName, safetyReply } from './utils/helpers';
+import { classifySafety } from './utils/moderation';
 import { ReactionBar } from './components/EngagementCards';
 import Sidebar from './components/Sidebar';
 import LandingPage from './pages/LandingPage';
@@ -35,6 +36,16 @@ function hasPersonalInfo(text = '') { return personalInfoPatterns.some(pattern =
 function privacyReply() { return `Small privacy check, yaar — please don't share real name, phone number, email, exact location, Instagram, hostel/PG, or address here. Quiet Circle is anonymous, so keep it general and safe.`; }
 function humanTypingDelay(text='') { return Math.min(5200, Math.max(1800, 900 + text.length * 28)); }
 function sourceLabel(source) { return showSourceLabels && source ? ` · ${source}` : ''; }
+function shouldAiReplyInRoom({ text, hasOtherPeople, roomMessages }) {
+  const safety = classifySafety(text);
+  if (safety.action !== 'allow') return true;
+  if (/\b(karan|quiet circle|ai|help me|can someone help|ground me)\b/i.test(text)) return true;
+  if (!hasOtherPeople) return true;
+  const lastAi = [...roomMessages].reverse().find(message => message.type === 'ai');
+  const lastAiAt = lastAi?.created_at ? new Date(lastAi.created_at).getTime() : 0;
+  const aiSpokeRecently = lastAiAt && Date.now() - lastAiAt < 3 * 60 * 1000;
+  return !aiSpokeRecently && roomMessages.length === 0;
+}
 function formatRoomMessage(row) {
   return { id: row.id, user: row.display_name || 'Anonymous', senderId: row.user_id || null, text: row.message || '', type: row.message_type || 'human', source: row.source || '', created_at: row.created_at };
 }
@@ -175,6 +186,7 @@ export default function App() {
     const userMsg = { id: `local-${Date.now()}`, user: senderName, senderId, text: userText, type: 'human', source: '', created_at: new Date().toISOString() };
     setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), userMsg]) })); setRoomInput('');
     if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: senderName, message: userText, message_type: 'human' }); else localStorage.setItem('qc_room_messages_by_id', JSON.stringify({ ...roomMessagesById, [currentRoom.id]: uniqueById([...(roomMessagesById[currentRoom.id] || []), userMsg]) }));
+    if (!shouldAiReplyInRoom({ text: userText, hasOtherPeople, roomMessages })) return;
     setAiTyping(true); await new Promise(r => setTimeout(r, humanTypingDelay(userText)));
     try { const { text: agentText, source } = await getAgentReply(userText); const agentMsg = { id: `agent-${Date.now()}`, user: 'Quiet Circle', senderId: 'agent', text: agentText + sourceLabel(source), type: 'ai', source, created_at: new Date().toISOString() }; setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), agentMsg]) })); if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: 'Quiet Circle', message: agentText, message_type: 'ai', source }); } finally { setAiTyping(false); }
   }
