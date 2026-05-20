@@ -12,13 +12,36 @@ export function StreakCard({ streak = 0 }) {
 }
 
 export function AuraCard({ score = 6 }) {
+  const [copied, setCopied] = useState(false);
   const aura = getMoodAura(score);
+
+  async function handleShareAura() {
+    const shareText = `${aura.emoji} My Quiet Circle aura today is ${aura.name}: ${aura.line}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'My Quiet Circle Aura',
+          text: shareText
+        });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (error) {
+      console.error('Aura share failed:', error);
+    }
+  }
+
   return (
     <div className={`card auraCard ${aura.className}`}>
       <p className="eyebrow">Today’s emotional aura</p>
       <h3>{aura.emoji} {aura.name}</h3>
       <p>{aura.line}</p>
-      <button className="secondaryBtn">Share aura card</button>
+      <button className="secondaryBtn" onClick={handleShareAura}>
+        {copied ? 'Copied!' : 'Share aura card'}
+      </button>
     </div>
   );
 }
