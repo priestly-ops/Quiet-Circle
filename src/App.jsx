@@ -21,7 +21,21 @@ const showSourceLabels = false;
 const circleChatType = 'circle';
 const aiChatType = 'ai';
 const lockedAgeRange = 'Anonymous';
+const personalInfoPatterns = [
+  /\b\d{10}\b/,
+  /\b(?:\+91[\s-]?)?[6-9]\d{9}\b/,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  /\b(?:whatsapp|phone|mobile|number|email|gmail|address|location|live in|i am from|insta|instagram|snapchat|telegram)\b/i,
+  /\b(?:flat|apartment|house no|street|colony|hostel|pg|pincode|pin code)\b/i
+];
 
+function hasPersonalInfo(text = '') {
+  return personalInfoPatterns.some(pattern => pattern.test(text));
+}
+
+function privacyReply() {
+  return 'Small privacy check, yaar — please don’t share real name, phone number, email, exact location, Instagram, hostel/PG, or address here. Quiet Circle is anonymous, so keep it general and safe.';
+}
 function daysCheckedIn(moods){ return new Set(moods.map(item => String(item.at).split(',')[0])).size; }
 function moodLabel(score){ if(score>=8)return 'peaceful sunrise'; if(score>=6)return 'cloudy but steady'; if(score>=4)return 'heavy fog'; return 'stormy thoughts'; }
 function humanTypingDelay(text=''){ return Math.min(5200, Math.max(1800, 900 + text.length * 28)); }
