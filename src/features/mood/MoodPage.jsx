@@ -1,3 +1,5 @@
+import { AuraCard } from '../../components/EngagementCards';
+
 export default function MoodPage({ moodScore, setMoodScore, moodNote, setMoodNote, moods, addMood, moodLabel }) {
   return (
     <section className="page">
@@ -34,6 +36,8 @@ export default function MoodPage({ moodScore, setMoodScore, moodNote, setMoodNot
 
           <button onClick={addMood}>Save check-in</button>
         </div>
+
+        <AuraCard score={Number(moodScore)} />
 
         <div className="card">
           <h3>Recent emotional weather</h3>
