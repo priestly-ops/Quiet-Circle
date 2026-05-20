@@ -39,7 +39,7 @@ function hasPersonalInfo(text = '') {
 }
 
 function privacyReply() {
-  return 'Small privacy check, yaar — please don't share real name, phone number, email, exact location, Instagram, hostel/PG, or address here. Quiet Circle is anonymous, so keep it general an[...]
+  return `Small privacy check, yaar — please don't share real name, phone number, email, exact location, Instagram, hostel/PG, or address here. Quiet Circle is anonymous, so keep it general and safe.`;
 }
 function daysCheckedIn(moods){ return new Set(moods.map(item => String(item.at).split(',')[0])).size; }
 function moodLabel(score){ if(score>=8)return 'peaceful sunrise'; if(score>=6)return 'cloudy but steady'; if(score>=4)return 'heavy fog'; return 'stormy thoughts'; }
