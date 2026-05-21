@@ -1,4 +1,4 @@
-import chatHandler from './chat';
+import chatHandler from './chat.js';
 
 export default async function handler(req, res) {
   req.body = {
