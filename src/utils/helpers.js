@@ -74,14 +74,13 @@ export function humanReply(text, room = {}) {
 
   const lower = text.toLowerCase();
   const roomId = room.id || '';
-  const roomName = room.name || 'this circle';
 
   if (isGreeting(text)) {
     return pick([
-      `Heyy, welcome to ${roomName}. Kya scene hai today?`,
-      `Hii, I’m here. No pressure, just say what’s on your mind yaar.`,
-      `Yo, you’re safe here. Vent karna hai ya chill talk?`,
-      `Hey bro, I’m listening. What’s been feeling heavy?`
+      'hi yaar, how are you?',
+      "hey hey, what's up?",
+      "yo, how's it going?",
+      'heyy, what are you up to?'
     ]);
   }
 
