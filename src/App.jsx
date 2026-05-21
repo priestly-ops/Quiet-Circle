@@ -21,10 +21,10 @@ const companionModes = [
 ];
 
 const chatStorageKeys = ['qc_messages','qc_room_messages_by_id'];
-const chatErrorText = 'Karan is having trouble responding right now. Please try again in a moment.';
+const chatErrorText = 'Manasa is having trouble responding right now. Please try again in a moment.';
 const showSourceLabels = false;
 const lockedAgeRange = 'Anonymous';
-const AI_AGENT = { id: 'karan-ai', name: 'Karan' };
+const AI_AGENT = { id: 'manasa-ai', name: 'Manasa' };
 const personalInfoPatterns = [
   /\b\d{10}\b/,
   /\b(?:\+91[\s-]?)?[6-9]\d{9}\b/,
