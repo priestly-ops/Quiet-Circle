@@ -131,7 +131,12 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseConfigured || !roomOpen || !currentRoom?.id) return undefined;
     let alive = true;
-    supabase.from('room_messages').select('*').eq('room_key', currentRoom.id).order('created_at', { ascending: true }).then(({ data }) => { if (alive && data) setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById(data.map(formatRoomMessage)) })); });
+    supabase.from('room_messages').select('*').eq('room_key', currentRoom.id).order('created_at', { ascending: true })
+      .then(({ data, error }) => { 
+        if (alive && data) setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById(data.map(formatRoomMessage)) })); 
+        if (error) console.error('Failed to load room messages:', error.message);
+      })
+      .catch(err => console.error('Room messages query failed:', err.message));
     const channel = supabase.channel(`room:${currentRoom.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'room_messages', filter: `room_key=eq.${currentRoom.id}` }, payload => { if (alive) setRoomMessagesById(prev => ({ ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), formatRoomMessage(payload.new)]) })); }).subscribe();
     return () => { alive = false; supabase.removeChannel(channel); };
   }, [roomOpen, currentRoom?.id]);
@@ -146,13 +151,13 @@ export default function App() {
   }, [roomOpen, currentRoom?.id]);
 
   async function syncProfile(next, user = session?.user, mode = authMode || 'demo') {
-    if (isSupabaseConfigured) { const locked = normalizeProfile(next); await supabase.from('profiles').upsert({ id: user?.id || DEMO_PROFILE_ID, display_name: locked.name, age_range: locked.age, intent: locked.intent, persona: locked.persona, role: locked.role }); }
+    if (isSupabaseConfigured) { const locked = normalizeProfile(next); try { await supabase.from('profiles').upsert({ id: user?.id || DEMO_PROFILE_ID, display_name: locked.name, age_range: locked.age, intent: locked.intent, persona: locked.persona, role: locked.role }); } catch (err) { console.error('Failed to sync profile:', err.message); } }
   }
   async function enterApp(mode) { const next = normalizeProfile({ ...profile, name: profile.name || makeAnonName() }); setProfile(next); localStorage.setItem('qc_profile', JSON.stringify(next)); if (!isSupabaseConfigured) { setEntered(true); localStorage.setItem('qc_entered', JSON.stringify(true)); return; } if (mode === 'email' && email) { setAuthNotice('Sending magic link…'); const { error } = await supabase.auth.signInWithOtp({ email }); setAuthNotice(error ? 'Could not send link. Try anonymous entry.' : 'Check your email for a magic link!'); return; } const { data, error } = await supabase.auth.signInAnonymously(); if (!error && data?.session) { setSession(data.session); await syncProfile(next, data.session.user, mode); } setEntered(true); localStorage.setItem('qc_entered', JSON.stringify(true)); }
   async function signOut() { if (isSupabaseConfigured && session) await supabase.auth.signOut(); localStorage.removeItem('qc_entered'); chatStorageKeys.forEach(key => localStorage.removeItem(key)); setSession(null); setEntered(false); setMessages([]); setRoomMessagesById(defaultRoomMessages); setChatInput(''); setRoomInput(''); setRoomOpen(false); setSelectedRoom(null); setAiTyping(false); setCompanionTyping(false); }
   async function saveProfile(next) { const locked = normalizeProfile(next); setProfile(locked); localStorage.setItem('qc_profile', JSON.stringify(locked)); if (isSupabaseConfigured) await syncProfile(locked); }
-  async function addMood() { const entry = { score: Number(moodScore), note: moodNote || 'No note', at: new Date().toLocaleString() }; const next = [entry, ...moods]; setMoods(next); localStorage.setItem('qc_moods', JSON.stringify(next)); setMoodNote(''); if (isSupabaseConfigured && session?.user?.id) await supabase.from('mood_checkins').insert({ user_id: session.user.id, mood_score: entry.score, note: entry.note }); }
-  async function saveJournal() { if (!journalText.trim()) return; if (hasPersonalInfo(journalText)) { alert(privacyReply()); return; } const entry = { text: journalText.trim(), at: new Date().toLocaleString(), mood: moodScore }; const next = [entry, ...journals]; setJournals(next); localStorage.setItem('qc_journals', JSON.stringify(next)); setJournalText(''); if (isSupabaseConfigured && session?.user?.id) await supabase.from('journal_entries').insert({ user_id: session.user.id, content: entry.text, mood_score: entry.mood }); }
+  async function addMood() { const entry = { score: Number(moodScore), note: moodNote || 'No note', at: new Date().toLocaleString() }; const next = [entry, ...moods]; setMoods(next); localStorage.setItem('qc_moods', JSON.stringify(next)); setMoodNote(''); if (isSupabaseConfigured && session?.user?.id) { try { await supabase.from('mood_checkins').insert({ user_id: session.user.id, mood_score: entry.score, note: entry.note }); } catch (err) { console.error('Failed to save mood:', err.message); } } }
+  async function saveJournal() { if (!journalText.trim()) return; if (hasPersonalInfo(journalText)) { alert(privacyReply()); return; } const entry = { text: journalText.trim(), at: new Date().toLocaleString(), mood: moodScore }; const next = [entry, ...journals]; setJournals(next); localStorage.setItem('qc_journals', JSON.stringify(next)); setJournalText(''); if (isSupabaseConfigured && session?.user?.id) { try { await supabase.from('journal_entries').insert({ user_id: session.user.id, content: entry.text, mood_score: entry.mood }); } catch (err) { console.error('Failed to save journal:', err.message); } } }
   async function openRoom(room) { setSelectedRoom(room); setRoomOpen(true); }
   function backToRooms() { setRoomOpen(false); setRoomInput(''); setAiTyping(false); }
   function changeActive(id) { setActive(id); if (id !== 'rooms') setRoomOpen(false); }
@@ -180,12 +185,20 @@ export default function App() {
     const nextRoomMessages = uniqueById([...(roomMessagesById[currentRoom.id] || []), userMsg]);
     const nextRoomMessagesById = { ...roomMessagesById, [currentRoom.id]: nextRoomMessages };
     setRoomMessagesById(nextRoomMessagesById); setRoomInput('');
-    if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: senderName, message: userText, message_type: 'human' }); else localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextRoomMessagesById));
+    if (isSupabaseConfigured && session?.user?.id) {
+      try {
+        await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: session.user.id, display_name: senderName, message: userText, message_type: 'human' });
+      } catch (err) {
+        console.error('Failed to send room message:', err.message);
+      }
+    } else {
+      localStorage.setItem('qc_room_messages_by_id', JSON.stringify(nextRoomMessagesById));
+    }
     if (!shouldAiReplyInCircle({ text: userText, hasOtherPeople })) return;
     setAiTyping(true); await new Promise(r => setTimeout(r, humanTypingDelay(userText)));
-    try { const { text: agentText, source } = await getAgentReply(userText, currentRoom, nextRoomMessages); const agentMsg = { id: `agent-${Date.now()}`, user: AI_AGENT.name, senderId: AI_AGENT.id, text: agentText + sourceLabel(source), type: 'ai', source, created_at: new Date().toISOString() }; setRoomMessagesById(prev => { const updated = { ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), agentMsg]) }; if (!isSupabaseConfigured) localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated)); return updated; }); if (isSupabaseConfigured && session?.user?.id) await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: AI_AGENT.id, display_name: AI_AGENT.name, message: agentText, message_type: 'ai', source }); } finally { setAiTyping(false); }
+    try { const { text: agentText, source } = await getAgentReply(userText, currentRoom, nextRoomMessages); const agentMsg = { id: `agent-${Date.now()}`, user: AI_AGENT.name, senderId: AI_AGENT.id, text: agentText + sourceLabel(source), type: 'ai', source, created_at: new Date().toISOString() }; setRoomMessagesById(prev => { const updated = { ...prev, [currentRoom.id]: uniqueById([...(prev[currentRoom.id] || []), agentMsg]) }; if (!isSupabaseConfigured) localStorage.setItem('qc_room_messages_by_id', JSON.stringify(updated)); return updated; }); if (isSupabaseConfigured && session?.user?.id) { try { await supabase.from('room_messages').insert({ room_key: currentRoom.id, user_id: AI_AGENT.id, display_name: AI_AGENT.name, message: agentText, message_type: 'ai', source }); } catch (err) { console.error('Failed to save AI message:', err.message); } } } finally { setAiTyping(false); }
   }
-  async function reportContent(type, text) { const report = { type, text, status: 'pending', at: new Date().toLocaleString() }; const next = [report, ...reports]; setReports(next); localStorage.setItem('qc_reports', JSON.stringify(next)); if (isSupabaseConfigured && session?.user?.id) await supabase.from('moderation_reports').insert({ user_id: session.user.id, report_type: type, content: text }); alert('Thank you — this message has been flagged for review.'); }
+  async function reportContent(type, text) { const report = { type, text, status: 'pending', at: new Date().toLocaleString() }; const next = [report, ...reports]; setReports(next); localStorage.setItem('qc_reports', JSON.stringify(next)); if (isSupabaseConfigured && session?.user?.id) { try { await supabase.from('moderation_reports').insert({ user_id: session.user.id, report_type: type, content: text }); } catch (err) { console.error('Failed to submit report:', err.message); } } alert('Thank you — this message has been flagged for review.'); }
 
   if (!entered) return <LandingPage profile={profile} email={email} setEmail={setEmail} authNotice={authNotice} saveProfile={saveProfile} makeAnonName={makeAnonName} enterApp={enterApp} />;
 
