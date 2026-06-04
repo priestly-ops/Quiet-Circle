@@ -1,47 +1,15 @@
-# Quiet Circle
+# QuietCircle India / MannMitra
 
-Quiet Circle is a privacy-first mental wellness MVP built with React, Vite, Vercel, and Supabase.
+Private mental wellness support for Indian life.
 
-## Features
+## Stack
+Next.js App Router, TypeScript, Tailwind CSS, Supabase, OpenAI-compatible AI, Razorpay, Resend, Vercel.
 
-- Mood check-ins
-- Private journaling
-- AI companion MVP
-- Anonymous support rooms
-- Crisis resources
-- Admin moderation dashboard
-- Local persistence
-- Supabase-ready architecture
+## Environment variables
+Copy `.env.example` to `.env.local` and set values in Vercel Project Settings.
 
-## Setup
+## Safety
+AI does not diagnose, prescribe medication, or replace therapy. Crisis language is routed to emergency help with India resources: 112, KIRAN 1800-599-0019, AASRA 91-22-27546669.
 
-Create a `.env` file:
-
-```env
-VITE_SUPABASE_URL=your_url
-VITE_SUPABASE_ANON_KEY=your_key
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-
-
-Run locally:
-
-```bash
-npm run dev
-```
-
-Build:
-
-```bash
-npm run build
-```
-
-Deploy:
-
-Connected automatically to Vercel via GitHub.
+## Deploy
+Push to GitHub. Vercel builds with `npm run build`.

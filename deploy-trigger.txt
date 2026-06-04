@@ -1,3 +1,0 @@
-Trigger Vercel rebuild for fix-chat-accuracy branch.
-Timestamp: 2026-05-19
-Purpose: deploy latest chat source labels and backend-only AI response handling.
