@@ -1,1 +1,57 @@
-export default function Login(){return <main className="mx-auto max-w-md px-4 py-10"><h1 className="text-3xl font-bold text-teal">Login</h1><div className="mt-6 rounded-3xl bg-white p-6 shadow-soft"><input className="w-full rounded-2xl border px-4 py-3" placeholder="Email"/><input className="mt-3 w-full rounded-2xl border px-4 py-3" placeholder="Password" type="password"/><button className="mt-4 w-full rounded-full bg-teal px-6 py-3 text-white">Login</button></div></main>}
+'use client';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, Suspense, useState } from 'react';
+import { createBrowserClient } from '@/lib/supabase/client';
+
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') || '/dashboard';
+  const supabase = createBrowserClient();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function login(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) return setMessage(error.message);
+    router.push(next);
+    router.refresh();
+  }
+
+  async function loginWithGoogle() {
+    setLoading(true);
+    const origin = window.location.origin;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` }
+    });
+    if (error) {
+      setLoading(false);
+      setMessage(error.message);
+    }
+  }
+
+  return <main className="mx-auto max-w-md px-4 py-10">
+    <h1 className="text-3xl font-bold text-teal">Welcome back</h1>
+    <p className="mt-2 text-sm text-slate-600">Login privately to save your journal, mood history, appointments, and chat history.</p>
+    <form onSubmit={login} className="mt-6 rounded-3xl bg-white p-6 shadow-soft">
+      <label className="text-sm font-semibold text-slate-700">Email</label>
+      <input value={email} onChange={(e)=>setEmail(e.target.value)} className="mt-2 w-full rounded-2xl border px-4 py-3" placeholder="you@example.com" type="email" required />
+      <label className="mt-4 block text-sm font-semibold text-slate-700">Password</label>
+      <input value={password} onChange={(e)=>setPassword(e.target.value)} className="mt-2 w-full rounded-2xl border px-4 py-3" placeholder="Password" type="password" required />
+      {message && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}
+      <button disabled={loading} className="mt-5 w-full rounded-full bg-teal px-6 py-3 font-semibold text-white disabled:opacity-60">{loading ? 'Please wait...' : 'Login'}</button>
+      <button type="button" onClick={loginWithGoogle} disabled={loading} className="mt-3 w-full rounded-full border border-teal px-6 py-3 font-semibold text-teal disabled:opacity-60">Continue with Google</button>
+      <p className="mt-5 text-center text-sm text-slate-600">New here? <Link className="font-semibold text-teal" href="/auth/register">Create account</Link></p>
+    </form>
+  </main>;
+}
+
+export default function Login(){return <Suspense fallback={<main className="p-6">Loading...</main>}><LoginForm /></Suspense>}
