@@ -1,0 +1,4 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root{color-scheme:light} body{background:#FFF8EE;color:#11312f} .safe-gradient{background:radial-gradient(circle at top left,rgba(217,138,36,.16),transparent 30%),linear-gradient(135deg,#fff8ee,#eef7f4 55%,#eef2ff)}
