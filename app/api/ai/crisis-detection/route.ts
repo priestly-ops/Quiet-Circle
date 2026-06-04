@@ -1,1 +1,0 @@
-import { NextResponse } from 'next/server';import { detectRisk } from '@/lib/ai/safety';export async function POST(req:Request){const {message}=await req.json();const riskLevel=detectRisk(String(message||''));return NextResponse.json({riskLevel,showEmergency:riskLevel==='high'});}

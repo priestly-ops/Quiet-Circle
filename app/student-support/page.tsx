@@ -1,1 +1,0 @@
-export default function Student(){return <main className="mx-auto max-w-4xl px-4 py-10"><h1 className="text-3xl font-bold text-teal">Student Support</h1><p className="mt-3 text-slate-600">Support for exam stress, placement anxiety, hostel loneliness, academic burnout, and parent pressure.</p></main>}
