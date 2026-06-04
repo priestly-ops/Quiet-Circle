@@ -1,0 +1,1 @@
+import { NextResponse } from 'next/server';import crypto from 'crypto';export async function POST(req:Request){const body=await req.json();const expected=crypto.createHmac('sha256',process.env.RAZORPAY_KEY_SECRET!).update(`${body.razorpay_order_id}|${body.razorpay_payment_id}`).digest('hex');return NextResponse.json({verified:expected===body.razorpay_signature});}

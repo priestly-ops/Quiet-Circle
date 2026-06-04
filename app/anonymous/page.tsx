@@ -1,0 +1,2 @@
+import ChatBox from '@/components/chat-box';
+export default function Anonymous(){return <main className="mx-auto max-w-4xl px-4 py-10"><h1 className="text-3xl font-bold text-teal">Start anonymously</h1><p className="mt-3 text-slate-600">You can share what is on your heart. We do not diagnose or replace therapy. If you are in danger, please use emergency help immediately.</p><ChatBox anonymous /></main>}

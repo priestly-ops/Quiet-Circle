@@ -1,36 +1,4 @@
 import { NextResponse } from 'next/server';
-
-export async function POST(req: Request) {
-  const form = await req.formData();
-
-  const from = String(form.get('From') || '');
-  const to = String(form.get('To') || '');
-  const body = String(form.get('Body') || '').trim();
-  const messageSid = String(form.get('MessageSid') || '');
-
-  console.log('Twilio inbound message', { from, to, body, messageSid });
-
-  const reply = body
-    ? 'Thanks for reaching out to QuietCircle India. If this is urgent or you may harm yourself, please call 112 in India or your local emergency number immediately. For mental health support in India, KIRAN: 1800-599-0019.'
-    : 'Thanks for messaging QuietCircle India. How can we support you today?';
-
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(reply)}</Message></Response>`;
-
-  return new NextResponse(twiml, {
-    status: 200,
-    headers: { 'Content-Type': 'text/xml' }
-  });
-}
-
-export async function GET() {
-  return NextResponse.json({ ok: true, route: 'twilio-incoming' });
-}
-
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
+export async function POST(req: Request) {const form=await req.formData();const body=String(form.get('Body')||'').trim();const reply=body?'Thanks for reaching out to QuietCircle India. If this is urgent or you may harm yourself, please call 112 in India or your local emergency number immediately. For mental health support in India, KIRAN: 1800-599-0019.':'Thanks for messaging QuietCircle India. How can we support you today?';const twiml=`<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(reply)}</Message></Response>`;return new NextResponse(twiml,{status:200,headers:{'Content-Type':'text/xml'}})}
+export async function GET(){return NextResponse.json({ok:true,route:'twilio-incoming'})}
+function escapeXml(value:string){return value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
